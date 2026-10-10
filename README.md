@@ -1,17 +1,21 @@
 <!-- Generated from the outcometick monorepo by scripts/publish-backtest-repo.mjs. Edits here are overwritten; open an issue or a PR and it is ported back. -->
-# outcometick backtest
+# outcometick backtest · Python
 
-**Tick-level backtesting for Polymarket and Predict.fun crypto Up/Down markets.** Your strategy is replayed
-against the archived order book, settled at $1 / $0 on the Chainlink stream each market actually settled on,
-and charged the venue's taker fee. Write it in Python or JavaScript; run it on your laptop or on the
-[hosted backtester](https://outcometick.com/backtest). Both run the same engine under the same rules, and this
-repository holds the tests that compare the implementations.
+**Tick-level backtesting for Polymarket and Predict.fun crypto Up/Down markets, in plain Python.** Your
+strategy is replayed against the archived order book, settled at $1 / $0 on the Chainlink stream each market
+actually settled on, and charged the venue's taker fee — on your laptop, from a notebook, with no other
+dependencies.
 
-[简体中文](README.zh-CN.md) · [Methodology](docs/methodology.md) · [How we verify it](docs/verification.md) ·
-[SDK reference](https://outcometick.com/docs/sdk)
+**English** · [简体中文](README.zh-CN.md) · [Methodology](docs/methodology.md) ·
+[How we verify it](docs/verification.md) · JavaScript / TypeScript:
+[polymarket-backtest-js](https://github.com/outcometick/polymarket-backtest-js)
+
+> Built by [outcometick.com](https://outcometick.com) — the Polymarket and Predict.fun tick-data archive this
+> replays, and a [hosted backtester](https://outcometick.com/backtest) that runs the same strategy on our
+> machines. [More below.](#on-outcometickcom)
 
 ```bash
-pip install outcometick        # Python 3.10+, no other dependencies
+pip install outcometick        # Python 3.10+, nothing else
 ```
 
 ```python
@@ -42,16 +46,12 @@ class Favourite(Strategy):
 result = run(Favourite, load_sample())   # one real archive day, downloaded once, no key
 print(result.summary())
 result.plot()                            # needs matplotlib
+result.trades_df()                       # every trade (needs pandas)
 ```
 
-JavaScript, with the `ot` command line (Node 24):
-
-```bash
-npm i -g outcometick
-ot init my-strategy --template favourite-near-close --lang nodejs
-curl -L https://github.com/outcometick/polymarket-tick-data-samples/releases/latest/download/polymarket-data-samples.tar.gz | tar xz
-ot run my-strategy --data ./polymarket-data-samples
-```
+The first run over a day decodes it (a few minutes for a busy day); the decoded day is cached, so the next run
+over it starts at once. [notebooks/quickstart.ipynb](notebooks/quickstart.ipynb) walks through a full example
+with its output.
 
 ## What it gets right
 
@@ -79,9 +79,9 @@ per maker order matched, the archive keeps book levels, so the fee is computed a
 memory. A market's `outcome` is hidden until `on_settle`. In session mode, markets that overlap in time are
 replayed interleaved in one time order, so state carried across markets never runs ahead of the clock.
 
-**One engine, two languages, local and hosted.** The Python and JavaScript engines are checked against each
-other trade by trade. The pure-Python runner is checked against the command line — which shares its decoder,
-engine and report with the hosted queue — event by event and row by row, on the public archive samples and on
+**The same engine as the hosted backtester.** The replay engine here is byte for byte the one our sandbox runs
+for Python strategies; the archive decoder and the report are ports of the JavaScript ones the command line and
+the hosted queue use, checked against them event by event and row by row on the public archive samples and on
 synthetic archives built to hold the awkward cases. See [How we verify it](docs/verification.md).
 
 **A report made for binary markets.** Brier score, calibration by entry price, edge per contract, peak capital
@@ -95,6 +95,25 @@ details.
 
 **Plain classes.** No special dialect, no compilation step: `on_market_open`, `on_tick`, `on_book`, `on_trade`,
 `on_settle`, returning an `Order` or nothing. The same class runs here and in the hosted sandbox.
+
+## The API
+
+```python
+run(StrategyClass, data,              # data: load_sample("polymarket" | "predict") or an archive directory
+    assets=["BTC"],                   # default BTC, ETH, SOL, XRP
+    days=["2026-09-08"],              # default: every day in the archive
+    intervals=["5m", "15m"],          # default ["5m"]
+    datasets=["settlement", "book", "trades", "bbo"],
+    mode="market",                    # or "session": one instance across markets, one clock
+    latency_ms=250,                   # decision-to-fill delay
+    fee_bps=None,                     # None: each market's venue fee; a number: flat override
+    params={"enter_at_s": 60})        # read as ctx.p
+
+run_template("path/to/strategy-dir", data)   # a directory with outcometick.json, like `ot run`
+```
+
+`Result` has `.report` (the same JSON the hosted backtester returns), `.trades`, `.fills`, `.logs`,
+`.summary()`, `.plot()`, `.trades_df()`, `.fills_df()`.
 
 ## How a run works
 
@@ -112,38 +131,45 @@ details.
   report: PnL, Brier, calibration, baselines, slippage, fee model, coverage of what ran
 ```
 
-## Data
-
-- **Free sample:** one real archive day per venue — `load_sample("polymarket")`, `load_sample("predict")` —
-  also on [GitHub Releases](https://github.com/outcometick/polymarket-tick-data-samples), Kaggle and Hugging Face.
-- **Full archive:** a [subscription](https://outcometick.com) downloads the same files for any day; point
-  `run()` at the unpacked directory. `outcometick.data` (Python) and `outcometick/data` (Node) fetch them.
-- **No download at all:** the [hosted backtester](https://outcometick.com/backtest) runs the same strategy over
-  recent days on our runner and returns the report.
-
 ## Limits
 
 - Orders take liquidity (IOC). Resting limit orders need a queue-position model; a guessed one inflates
   market-making returns, so they are refused rather than approximated. A conservative queue model is next.
 - 5-minute and 15-minute crypto Up/Down markets, the ones the archive holds.
 - The Binance reference feed lives on the hosted runner, not in the archive, so strategies that read it run
-  there. Your own CSV series (`series`, read with `ctx.ext()`) run with `ot run` and hosted; the Python runner
-  refuses them for now rather than replaying without them.
+  there. Your own CSV series (`series`, read with `ctx.ext()`) run with `ot run` and hosted; this runner refuses
+  them for now rather than replaying without them.
 - One sample day says nothing about next month. Backtest over a range before trusting any number.
+
+## On outcometick.com
+
+- **The data behind it.** A [tick-level archive of Polymarket and Predict.fun](https://outcometick.com) crypto
+  Up/Down markets: order-book snapshots and deltas, trades, best bid/ask, market metadata, and the Chainlink
+  streams the markets settle on, published daily. Download a day and point `run()` at it, or read the files with
+  pandas, Polars or DuckDB. The free sample is also on [GitHub](https://github.com/outcometick/polymarket-tick-data-samples),
+  Kaggle and Hugging Face.
+- **The hosted backtester.** [outcometick.com/backtest](https://outcometick.com/backtest) runs the same strategy
+  class over recent weeks on our machines, with nothing to download — paid per market-day scanned, and a run that
+  produces no report costs nothing.
+- **Settlement audit.** [Market by market](https://outcometick.com/polymarket-settlement-audit), the outcome
+  recomputed from the archived Chainlink stream and compared with the venue's.
+- **From an AI coding tool.** The npm package `outcometick` includes an MCP server (`ot mcp`) so Claude Code or
+  Cursor can search the archive and check a strategy locally — see [the docs](https://outcometick.com/docs).
+- 中文站：[outcometick.com/zh](https://outcometick.com/zh)
 
 ## This repository
 
 | path | what |
 | --- | --- |
-| `python/` | the `outcometick` PyPI package: SDK, data client, `outcometick.backtest`, tests |
-| `typescript/` | the `outcometick` npm package: SDK, the `ot` CLI, the JavaScript engine, tests |
-| `examples/` | runnable strategies in both languages |
+| `outcometick/` | the `outcometick` PyPI package: SDK, data client (`outcometick.data`), `outcometick.backtest` |
+| `tests/` | the package's unit tests, including answers worked by hand |
+| `examples/` | runnable strategies; `examples/templates/` holds the templates `ot init` ships |
 | `notebooks/` | the quick start as a notebook, with its output |
+| `verify/` | the tests that compare this package with the JavaScript implementation |
 | `docs/` | methodology and verification |
 
-Generated from the outcometick monorepo, where the engines also run the hosted backtester; packages are
-released from [outcometick-sdk-python](https://github.com/outcometick/outcometick-sdk-python) and
-[outcometick-sdk-ts](https://github.com/outcometick/outcometick-sdk-ts). Issues and pull requests are welcome
-here.
+Generated from the outcometick monorepo, where the same engine runs the hosted backtester; the PyPI release
+comes from [outcometick-sdk-python](https://github.com/outcometick/outcometick-sdk-python). Issues and pull
+requests are welcome here.
 
 License: MIT.

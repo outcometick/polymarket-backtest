@@ -35,10 +35,11 @@ import { buildPolymarketFixture, buildPredictFixture } from './fixture-archive.m
 const run = promisify(execFile);
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 // Two homes: client/backtest/ in the monorepo, verify/ in the public
-// polymarket-backtest repository (beside typescript/ = the npm tree and
-// python/ = the PyPI tree). Same test, same assertions.
+// polymarket-backtest repository — the PyPI tree at its root, and the npm
+// package (`npm install outcometick@<same version>`) as the JavaScript side to
+// compare against. Same test, same assertions.
 const MONOREPO = existsSync(path.join(HERE, '..', '..', 'runner', 'events.mjs'));
-const JS_ROOT = MONOREPO ? path.join(HERE, '..', '..') : path.join(HERE, '..', 'typescript');
+const JS_ROOT = MONOREPO ? path.join(HERE, '..', '..') : path.join(HERE, '..', 'node_modules', 'outcometick');
 const ROOT = JS_ROOT;
 const PYTHON = process.env.OT_PYTHON || 'python3';
 const OT = path.join(JS_ROOT, 'cli', 'ot.mjs');
@@ -62,8 +63,8 @@ const SAMPLE_SHA256 = {
 async function pythonPackage(dir) {
   await mkdir(dir, { recursive: true });
   if (!MONOREPO) {
-    // The public repository's python/ IS that layout already.
-    await cp(path.join(HERE, '..', 'python', 'outcometick'), path.join(dir, 'outcometick'), { recursive: true });
+    // The public repository's root IS that layout already.
+    await cp(path.join(HERE, '..', 'outcometick'), path.join(dir, 'outcometick'), { recursive: true });
     return dir;
   }
   const pkg = path.join(dir, 'outcometick');

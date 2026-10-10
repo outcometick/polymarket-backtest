@@ -16,12 +16,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const run = promisify(execFile);
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-// client/backtest/ in the monorepo; verify/ in the public repository.
+// client/backtest/ in the monorepo; verify/ in the public Python repository,
+// with the npm package installed beside it as the JavaScript side.
 const MONOREPO = existsSync(path.join(HERE, '..', '..', 'runner', 'events.mjs'));
-const JS_ROOT = MONOREPO ? path.join(HERE, '..', '..') : path.join(HERE, '..', 'typescript');
+const JS_ROOT = MONOREPO ? path.join(HERE, '..', '..') : path.join(HERE, '..', 'node_modules', 'outcometick');
 const { num } = await import(pathToFileURL(path.join(JS_ROOT, 'runner', 'events.mjs')).href);
-// The Python side: the source package in the monorepo, the PyPI tree outside it.
-const PY_PATH = MONOREPO ? path.join(HERE, '..') : path.join(HERE, '..', 'python');
+// The Python side: the source package in the monorepo, the repository root outside it.
+const PY_PATH = MONOREPO ? path.join(HERE, '..') : path.join(HERE, '..');
 const PY_MODULE = MONOREPO ? 'backtest._js' : 'outcometick.backtest._js';
 const PYTHON = process.env.OT_PYTHON || 'python3';
 

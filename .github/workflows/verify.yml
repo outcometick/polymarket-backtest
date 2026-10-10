@@ -14,12 +14,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install ./python
-      - run: python -m unittest discover -s python/tests -v
+      - run: pip install .
+      - run: python -m unittest discover -s tests -v
 
   equivalence:
-    # The JavaScript and Python implementations, compared on synthetic archives
-    # built to hold the awkward cases (see docs/verification.md).
+    # This package against the JavaScript implementation of the same version,
+    # on synthetic archives built to hold the awkward cases (docs/verification.md).
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,8 +29,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
-      - run: npm install
-        working-directory: typescript
+      - run: npm install --no-save "outcometick@$(node -p "require('./verify/version.json').version")"
       - run: node --test 'verify/*.test.mjs'
-      - run: npm test
-        working-directory: typescript
