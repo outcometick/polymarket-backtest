@@ -74,7 +74,7 @@ async function pythonPackage(dir) {
   for (const f of await readdir(path.join(ROOT, 'client/backtest'))) {
     if (f.endsWith('.py') || f === '_contract.json') await cp(path.join(ROOT, 'client/backtest', f), path.join(pkg, 'backtest', f));
   }
-  for (const f of ['otengine.py', 'otfeed.py', 'otreplay.py', 'otharness.py']) {
+  for (const f of ['otengine.py', 'otfeed.py', 'otmaker.py', 'otreplay.py', 'otharness.py']) {
     await cp(path.join(ROOT, 'runner/harness/python', f), path.join(pkg, 'backtest', '_sandbox', f));
   }
   return dir;
@@ -320,6 +320,71 @@ export class S extends Strategy {
   },
 };
 
+// Resting orders: Polymarket only (the Predict archive has no trade stream, so
+// a gtc order is refused there by design — restingPolicyFor).
+STRATEGIES.maker_quotes = {
+  venues: ['polymarket'],
+  manifest: {
+    hooks: ['on_market_open', 'on_book'], datasets: ['settlement', 'book', 'trades'], intervals: ['5m'],
+    latency: 100, cancel_latency: 40,
+  },
+  py: `import math
+
+from outcometick import Strategy, Order
+
+
+def r3(x):
+    return math.floor(x * 1000 + 0.5) / 1000
+
+
+class S(Strategy):
+    def on_market_open(self, ctx, market):
+        self.n = 0
+
+    def on_book(self, ctx, ev):
+        self.n += 1
+        if self.n % 40 != 1:
+            return None
+        book = ctx.book()
+        bid, ask = book.best_bid("UP"), book.best("UP")
+        if bid is None or ask is None or not 0.02 < bid < ask < 0.98:
+            return None
+        for o in ctx.orders():
+            ctx.cancel(o.id)
+        out = [Order(side="UP", size=20, limit=r3(bid), tif="gtc", client_id="b" + str(self.n))]
+        pos = ctx.position()
+        if pos.side == "UP" and pos.size > 0:
+            out.append(Order(side="UP", size=pos.size, limit=r3(min(0.99, ask)), tif="gtc", reduce_only=True))
+        return out
+`,
+  js: `import { Strategy, Order } from "outcometick";
+
+const r3 = (x) => Math.floor(x * 1000 + 0.5) / 1000;
+
+export class S extends Strategy {
+  onMarketOpen(ctx, market) { this.n = 0; }
+  onBook(ctx, ev) {
+    this.n += 1;
+    if (this.n % 40 !== 1) return null;
+    const book = ctx.book();
+    const bid = book.bestBid("UP"), ask = book.best("UP");
+    if (bid == null || ask == null || !(bid > 0.02 && bid < ask && ask < 0.98)) return null;
+    for (const o of ctx.orders()) ctx.cancel(o.id);
+    const out = [new Order({ side: "UP", size: 20, limit: r3(bid), tif: "gtc", clientId: "b" + this.n })];
+    const pos = ctx.position();
+    if (pos.side === "UP" && pos.size > 0) {
+      out.push(new Order({ side: "UP", size: pos.size, limit: r3(Math.min(0.99, ask)), tif: "gtc", reduceOnly: true }));
+    }
+    return out;
+  }
+}
+`,
+};
+
+/** Strategies a given archive can run: all of them, minus venue-specific ones. */
+const strategiesFor = (archiveName) => Object.keys(STRATEGIES)
+  .filter((n) => !STRATEGIES[n].venues || STRATEGIES[n].venues.some((v) => archiveName.startsWith(v)));
+
 const BASE = { schema: 1, params: {} };
 
 async function strategyDir(root, name, lang, tag) {
@@ -392,7 +457,7 @@ test('outcometick.backtest reproduces `ot run`: every report field, trade and fi
   const pkg = await pythonPackage(path.join(work, 'pkg'));
   try {
     for (const a of list) {
-      for (const name of Object.keys(STRATEGIES)) {
+      for (const name of strategiesFor(a.name)) {
         const dir = await strategyDir(work, name, 'python', a.name.replace(/\W+/g, '_'));
         const { report, zip } = await otRun(dir, a.root);
         await writeFile(path.join(dir, 'report.json'), JSON.stringify(report));
@@ -406,6 +471,10 @@ test('outcometick.backtest reproduces `ot run`: every report field, trade and fi
         compareRows(`${label} trades`, got.trades, got.js.trades);
         compareRows(`${label} fills`, got.fills, got.js.fills);
         assert.ok(!/LOOKAHEAD/.test(JSON.stringify(got.report)), `${label}: look-ahead`);
+        if (name === 'maker_quotes') {
+          // Agreement on an empty block would prove nothing.
+          assert.ok(theirs.maker?.maker_fills > 0, `${label}: no maker fill — ${JSON.stringify(theirs.maker)}`);
+        }
       }
     }
   } finally {
@@ -417,14 +486,14 @@ test('the same strategy in JavaScript and in Python trades identically on archiv
   const { work, list } = await archives();
   try {
     for (const a of list) {
-      for (const name of Object.keys(STRATEGIES)) {
+      for (const name of strategiesFor(a.name)) {
         const tag = a.name.replace(/\W+/g, '_');
         const pyDir = await strategyDir(work, name, 'python', tag);
         const jsDir = await strategyDir(work, name, 'nodejs', tag);
         const [p, j] = await Promise.all([otRun(pyDir, a.root), otRun(jsDir, a.root)]);
         const label = `${a.name} / ${name}`;
         // Everything a strategy's language must not change.
-        for (const k of ['metrics', 'equity', 'trades_head', 'rows', 'calibration', 'baselines', 'split', 'slippage', 'fee_model', 'coverage', 'scanned']) {
+        for (const k of ['metrics', 'equity', 'trades_head', 'rows', 'calibration', 'baselines', 'split', 'slippage', 'fee_model', 'maker', 'coverage', 'scanned']) {
           assert.deepStrictEqual(p.report[k], j.report[k], `${label}: ${k} differs between languages`);
         }
         assert.ok(p.report.rows.trades > 0, `${label}: the strategy never traded, so this proves nothing`);

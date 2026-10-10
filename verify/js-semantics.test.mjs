@@ -78,3 +78,24 @@ test('the Python port reads, prints and rounds numbers exactly as JavaScript doe
   // === rather than Object.is: Math.round(-0.5) is -0, which JSON cannot carry.
   spec.round.forEach((x, i) => assert.ok(got.round[i] === Math.round(x), `Math.round(${x}): python ${got.round[i]}`));
 });
+
+test('the Python port decides whether a run may rest orders exactly as JavaScript does', async () => {
+  // The refusal text reaches the customer verbatim from whichever runner they
+  // used, so it is compared as well as the verdict.
+  const { restingPolicyFor } = await import(pathToFileURL(path.join(JS_ROOT, 'api', 'lib', 'backtest-datasets.mjs')).href);
+  const CASES = [
+    [{ datasets: ['settlement', 'book', 'trades'] }, 'polymarket'],
+    [{ datasets: ['settlement', 'book', 'trades'], latency: 250 }, 'polymarket'],
+    [{ datasets: ['settlement', 'book', 'trades'], latency: 250, cancel_latency: 0 }, 'polymarket'],
+    [{ datasets: ['settlement', 'book'] }, 'polymarket'],
+    [{ datasets: ['settlement'] }, 'polymarket'],
+    [{ datasets: ['settlement', 'book', 'trades'] }, 'predict'],
+  ];
+  const mod = PY_MODULE.replace(/_js$/, 'datasets');
+  const child = run(PYTHON, ['-c', `import json, sys\nfrom ${mod} import resting_policy_for\n`
+    + 'print(json.dumps([resting_policy_for(m, v) for m, v in json.loads(sys.stdin.read())], ensure_ascii=False))'],
+  { env: { ...process.env, PYTHONPATH: PY_PATH } });
+  child.child.stdin.end(JSON.stringify(CASES));
+  const { stdout } = await child;
+  assert.deepEqual(JSON.parse(stdout), CASES.map(([m, v]) => restingPolicyFor({ manifest: m, venue: v })));
+});

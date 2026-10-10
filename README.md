@@ -4,7 +4,8 @@
 **Tick-level backtesting for Polymarket and Predict.fun crypto Up/Down markets, in plain Python.** Your
 strategy is replayed against the archived order book, settled at $1 / $0 on the Chainlink stream each market
 actually settled on, and charged the venue's taker fee — on your laptop, from a notebook, with no other
-dependencies.
+dependencies. Market makers get resting limit orders with a queue model built on how Polymarket actually
+records trading, and the markouts to see whether the fills were worth having.
 
 **English** · [简体中文](README.zh-CN.md) · [Methodology](docs/methodology.md) ·
 [How we verify it](docs/verification.md) · JavaScript / TypeScript:
@@ -75,6 +76,18 @@ schedule is in the archive, and every simulated fill pays it. The report states 
 markets had no readable schedule. It is an estimate in one respect, and the report says so: the venue rounds
 per maker order matched, the archive keeps book levels, so the fee is computed and rounded per level taken.
 
+**Resting orders, queued the way the venue trades.** `Order(..., tif="gtc")` rests at its limit behind the size
+already visible at that price. The queue model is built on three measured facts about the archive, not on a
+generic exchange: the book is *mirrored* (an UP bid at q and a DOWN ask at 1 − q are one queue, published twice),
+each trade prints *once, on the taker's token* (so a DOWN buyer taking resting UP bids — a mint — advances an UP
+bid's queue; a single-token model misses about half of what consumes it), and a print can arrive *after* the book
+update it caused. So a print fills a resting order only if its price reaches the order, out of one volume budget
+that first pays for depth the book removed just before it, at that depth's own price; a new order ignores prints
+for a short lag window, and a cancelled one stays exposed for it. Entry and cancel latency are separate
+(`latency_ms`, `cancel_latency_ms`), maker fills pay no fee (rebates are not modelled), and both engines agree
+fill for fill. The report adds what a market maker looks at: fill rate, queue position at entry and at fill,
+time in queue, and markouts 1s / 10s / 60s after each fill and to settlement — adverse selection, in numbers.
+
 **No look-ahead by construction.** Events reach the strategy one at a time; the rest of the day is not in
 memory. A market's `outcome` is hidden until `on_settle`. In session mode, markets that overlap in time are
 replayed interleaved in one time order, so state carried across markets never runs ahead of the clock.
@@ -105,7 +118,8 @@ run(StrategyClass, data,              # data: load_sample("polymarket" | "predic
     intervals=["5m", "15m"],          # default ["5m"]
     datasets=["settlement", "book", "trades", "bbo"],
     mode="market",                    # or "session": one instance across markets, one clock
-    latency_ms=250,                   # decision-to-fill delay
+    latency_ms=250,                   # decision-to-fill delay (also when a resting order arrives)
+    cancel_latency_ms=None,           # ctx.cancel() to venue; None: same as latency_ms
     fee_bps=None,                     # None: each market's venue fee; a number: flat override
     params={"enter_at_s": 60})        # read as ctx.p
 
@@ -114,6 +128,24 @@ run_template("path/to/strategy-dir", data)   # a directory with outcometick.json
 
 `Result` has `.report` (the same JSON the hosted backtester returns), `.trades`, `.fills`, `.logs`,
 `.summary()`, `.plot()`, `.trades_df()`, `.fills_df()`.
+
+A resting quote, and the numbers it is judged by:
+
+```python
+class Quote(Strategy):
+    def on_book(self, ctx, ev):
+        bid = ctx.book().best_bid("UP")
+        if bid is None or ctx.orders():          # one working quote at a time
+            return None
+        return Order(side="UP", size=20, limit=bid, tif="gtc", post_only=True, client_id="q")
+
+
+result = run(Quote, load_sample(), datasets=["settlement", "book", "trades"], latency_ms=150)
+result.report["maker"]     # fill rate, queue ahead at join / at fill, markouts 1s / 10s / 60s / settle
+```
+
+`ctx.orders()` lists your working orders (no queue position — a venue does not tell you that); `ctx.cancel(id)`
+cancels one by its id or `client_id`. [examples/maker_quotes.py](examples/maker_quotes.py) quotes both sides.
 
 ## How a run works
 
@@ -125,16 +157,19 @@ run_template("path/to/strategy-dir", data)   # a directory with outcometick.json
   one event stream per market (session mode: one stream across markets, by time)
       │  pulled one event at a time
       ▼
-  engine: order book (UP + DOWN) ── your strategy's hooks ── orders (IOC, latency, limit)
-      │  fills walk the depth · venue taker fee · settlement $1 / $0 at the official outcome
+  engine: order book (UP + DOWN) ── your strategy's hooks ── orders (IOC or resting, latency, limit)
+      │  taker fills walk the depth · resting orders queue on both tokens' prints
+      │  venue taker fee · settlement $1 / $0 at the official outcome
       ▼
-  report: PnL, Brier, calibration, baselines, slippage, fee model, coverage of what ran
+  report: PnL, Brier, calibration, baselines, slippage, maker metrics, fee model, coverage
 ```
 
 ## Limits
 
-- Orders take liquidity (IOC). Resting limit orders need a queue-position model; a guessed one inflates
-  market-making returns, so they are refused rather than approximated. A conservative queue model is next.
+- Resting orders: queue position is an estimate from aggregated book levels (individual maker orders are not
+  in the feed), book deltas are thinned to a capture cadence, and your orders have no market impact. They run
+  on Polymarket only: the Predict.fun archive has no trade stream to advance a queue, so `gtc` is refused there.
+  The independent auditor does not yet re-derive resting-order fills.
 - 5-minute and 15-minute crypto Up/Down markets, the ones the archive holds.
 - The Binance reference feed lives on the hosted runner, not in the archive, so strategies that read it run
   there. Your own CSV series (`series`, read with `ctx.ext()`) run with `ot run` and hosted; this runner refuses
