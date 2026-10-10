@@ -37,7 +37,7 @@ function lcg(seed) {
 
 const tok = (n) => String(10n ** 70n + BigInt(n));      // token ids are 77-digit decimal strings
 
-function pmMarket({ slug, asset, intervalSec, cond, start, end, outcome, lookback = 60, fee = 'on' }) {
+function pmMarket({ slug, asset, intervalSec, cond, start, end, outcome, lookback = 60, fee = 'on', tokens = 'pair' }) {
   const ups = tok(cond * 2);
   const downs = tok(cond * 2 + 1);
   const raw = {
@@ -55,7 +55,8 @@ function pmMarket({ slug, asset, intervalSec, cond, start, end, outcome, lookbac
       asset,
       interval_sec: intervalSec,
       condition_id: `0x${String(cond).padStart(64, '0')}`,
-      token_ids: [ups, downs],
+      // 'dup': a markets row whose [Up, Down] pair is unusable (both decoders must drop it)
+      token_ids: tokens === 'dup' ? [ups, ups] : [ups, downs],
       start_sec: start / 1000,
       end_sec: end / 1000,
       resolved: outcome != null,
@@ -150,6 +151,9 @@ export async function buildPolymarketFixture(root) {
       pmMarket({ slug: 'btc-updown-5m-c', asset: 'btc', intervalSec: 300, cond: 3, start: D1(0, 10), end: D1(0, 15), outcome: 'UP', fee: 'odd' }),
       pmMarket({ slug: 'btc-updown-5m-d', asset: 'btc', intervalSec: 300, cond: 4, start: D1(0, 15), end: D1(0, 20), outcome: null }),
       pmMarket({ slug: 'btc-updown-5m-e', asset: 'btc', intervalSec: 300, cond: 5, start: D1(0, 20), end: D1(0, 25), outcome: 'DOWN', lookback: 30, fee: 'missing' }),
+      // Same token id twice: book rows exist and ticks flow, but no row can be
+      // attributed to a side — unusable, not billed against an empty book.
+      pmMarket({ slug: 'btc-updown-5m-f', asset: 'btc', intervalSec: 300, cond: 6, start: D1(0, 25), end: D1(0, 30), outcome: 'UP', tokens: 'dup' }),
     ],
     'BTC-15m': [
       pmMarket({ slug: 'btc-updown-15m-a', asset: 'btc', intervalSec: 900, cond: 11, start: D1(0, 0), end: D1(0, 15), outcome: 'DOWN' }),

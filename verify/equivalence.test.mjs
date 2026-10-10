@@ -373,6 +373,13 @@ test('the Python decoder produces the same events as the JS decoder', { timeout:
         // Vacuity guard: an archive that decodes to nothing would agree trivially.
         assert.ok(events > 0, `${a.name}: nothing decoded`);
         assert.deepStrictEqual(pyOut, js, `${a.name} ${JSON.stringify(shape)}: decoders disagree`);
+        // The synthetic Polymarket archive carries a market with an unusable
+        // token pair (fixture-archive.mjs, 'btc-updown-5m-f'): agreement only
+        // proves something if both decoders actually reached that verdict.
+        if (a.name === 'polymarket fixture' && shape.datasets.includes('book')) {
+          const why = js.flatMap((d) => d.unusable.map((u) => u.why));
+          assert.ok(why.includes('market has no usable [Up, Down] token ids'), `token-pair case not exercised: ${JSON.stringify(why)}`);
+        }
       }
     }
   } finally {
