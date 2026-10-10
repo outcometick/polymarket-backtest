@@ -1,0 +1,36 @@
+name: verify
+
+on: [push, pull_request]
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # The floor pyproject advertises, and what the hosted sandbox runs.
+        python-version: ['3.10', '3.14']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install ./python
+      - run: python -m unittest discover -s python/tests -v
+
+  equivalence:
+    # The JavaScript and Python implementations, compared on synthetic archives
+    # built to hold the awkward cases (see docs/verification.md).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - run: npm install
+        working-directory: typescript
+      - run: node --test 'verify/*.test.mjs'
+      - run: npm test
+        working-directory: typescript
