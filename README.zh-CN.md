@@ -157,6 +157,13 @@ result.report["maker"]     # 成交率、入队/成交时前方排队量、1s / 
 - **在 AI 编程工具里用。** npm 包 `outcometick` 带了 MCP 服务（`ot mcp`），Claude Code、Cursor 可以直接查归档、在本地检查策略，
   见[文档](https://outcometick.com/zh/docs)。
 
+## 社区
+
+有问题、想讨论策略或对一对回测结果，欢迎来：
+
+- Discord（中英文分区）：https://discord.gg/ZDMqkptwm5
+- Telegram 群：https://t.me/+TcK_hJOzOz5mZTk1
+
 ## 仓库结构
 
 | 路径 | 内容 |

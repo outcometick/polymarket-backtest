@@ -205,6 +205,13 @@ cancels one by its id or `client_id`. [examples/maker_quotes.py](examples/maker_
   Cursor can search the archive and check a strategy locally — see [the docs](https://outcometick.com/docs).
 - 中文站：[outcometick.com/zh](https://outcometick.com/zh)
 
+## Community
+
+Questions, strategy ideas, or a backtest result to compare notes on:
+
+- Discord (English and 中文): https://discord.gg/ZDMqkptwm5
+- Telegram: https://t.me/+TcK_hJOzOz5mZTk1
+
 ## This repository
 
 | path | what |
