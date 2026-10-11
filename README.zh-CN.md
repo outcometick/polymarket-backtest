@@ -1,7 +1,7 @@
 <!-- Generated from the outcometick monorepo by scripts/publish-backtest-repo.mjs. Edits here are overwritten; open an issue or a PR and it is ported back. -->
 # outcometick 回测 · Python
 
-**用普通 Python 对 Polymarket 与 Predict.fun 加密货币涨跌市场做逐笔回测。** 策略按归档的真实盘口重放，按每个市场实际使用的
+**用普通 Python 对 Polymarket 与 Predict.fun 加密货币涨跌市场做逐笔回测；自带数据时，任意 Polymarket 二元市场都能回测。** 策略按归档的真实盘口重放，按每个市场实际使用的
 Chainlink 结算流以 1 美元 / 0 美元结算，并扣除平台的吃单手续费。在自己电脑上、在 notebook 里就能跑，不依赖其它包。
 做市策略可以挂限价单：排队模型按 Polymarket 实际的撮合记录方式建立，报告给出成交后的价格走势，看这些成交值不值。
 
@@ -136,11 +136,42 @@ result.report["maker"]     # 成交率、入队/成交时前方排队量、1s / 
 `ctx.orders()` 列出你还在挂的单（不提供排队位置——真实平台也不会告诉你）；`ctx.cancel(id)` 按 id 或 `client_id` 撤单。
 [examples/maker_quotes.py](examples/maker_quotes.py) 是双边报价的完整例子。
 
+## 用你自己的数据：任意 Polymarket 二元市场
+
+归档里只有加密货币涨跌市场。其他市场（选举、体育、任何两个结果的市场）可以自带数据，用同一个引擎、同样的成交、
+手续费和报告来回测。
+
+```python
+from outcometick.backtest import run, Dataset
+
+# 目录：顶层放 markets.json（或 .jsonl），下面任意位置放 *.jsonl / *.jsonl.gz 的 CLOB 行情帧。
+result = run(MyStrategy, "my-polymarket-data")
+
+# 内存里：Gamma 市场对象（或 {market_id, token_ids, labels, ...}）加上你录下的帧。
+result = run(MyStrategy, Dataset.from_frames(gamma_markets, frames))
+
+# 单盘口表格形态（带 bid_prices/ask_prices/pc_price... 的 l2 行，加一张成交表）：
+result = run(MyStrategy, Dataset.from_pmdata(l2, trades, market=gamma_market))
+```
+
+- **行情帧**就是 Polymarket 自己的：`book`、`price_change`、`best_bid_ask`、`last_trade_price`、`market_resolved`，
+  原样或放在 `payload` 下（归档的行格式）。按 condition id、slug 或 token id 对应到市场，帧里带的每个标识都必须一致。
+- **下单可以写结果名**：`Order(side="Yes", ...)` 或 `"Lakers"`，市场的任一标签；UP/DOWN 对应第 0/1 个结果。
+  写了市场没有的标签，回测直接停止。
+- **只凭证据结算。** Gamma 显示已结算（`umaResolutionStatus` 且 `outcomePrices` 恰为 1/0、0/1 或 0.5/0.5）、
+  `market_resolved` 帧给出赢家、或你提供 `resolution: {outcome, resolved_ts_ms}`，且所有来源一致，才按 $1/$0（或
+  各半）兑付。结果公开的前一毫秒停止交易，之后的行情不会到达策略，兑付记在那个时刻。
+- **未结算的市场按估值，不猜结果。** 交易结束时，未平仓位按外部行情的中间价估值（UP 盘口，否则 DOWN 盘口的镜像，
+  否则最后一笔公开成交），只用市场数据计算，你自己的订单改变不了它。`mark_max_age_ms` 拒绝过旧的报价；没有可用
+  估值的仓位按 0 计。报告把 `realised_pnl` 与 `marked_pnl` 分开，并注明这是估值，不是可成交的退出。
+- **严格。** 读不出的盘口行、或指向别的市场 token 的行，会让整个市场不参与回放（残缺的盘口会在已经不存在的价格上
+  成交），报告里列出原因。
+
 ## 限制
 
 - 挂单：排队位置是从聚合档位估算的（数据里没有单个挂单），盘口增量按采集频率抽稀，你的订单不产生市场冲击。挂单只支持 Polymarket：
   Predict.fun 的归档没有成交流，无法推进排队，所以那里拒绝 `gtc`。独立核对器目前还不重算挂单成交。
-- 只有 5 分钟和 15 分钟的加密货币涨跌市场，也就是归档里有的那些。
+- 归档里只有 5 分钟和 15 分钟的加密货币涨跌市场。其他 Polymarket 二元市场用你自己的数据回测（见上文）；托管回测只跑归档数据。
 - 币安参考价流在托管机器上，不在归档里，读它的策略要在托管回测里跑。自带的 CSV 序列（`series`，用 `ctx.ext()` 读）
   可以用 `ot run` 或托管回测跑；这个运行器暂时不支持，会直接拒绝，而不是丢掉序列照跑。
 - 一个样本日说明不了下个月。相信任何数字之前，先在一段时间范围上回测。

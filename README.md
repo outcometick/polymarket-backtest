@@ -1,7 +1,7 @@
 <!-- Generated from the outcometick monorepo by scripts/publish-backtest-repo.mjs. Edits here are overwritten; open an issue or a PR and it is ported back. -->
 # outcometick backtest · Python
 
-**Tick-level backtesting for Polymarket and Predict.fun crypto Up/Down markets, in plain Python.** Your
+**Tick-level backtesting for Polymarket and Predict.fun crypto Up/Down markets — and, from your own data, any Polymarket binary market — in plain Python.** Your
 strategy is replayed against the archived order book, settled at $1 / $0 on the Chainlink stream each market
 actually settled on, and charged the venue's taker fee — on your laptop, from a notebook, with no other
 dependencies. Market makers get resting limit orders with a queue model built on how Polymarket actually
@@ -160,6 +160,40 @@ result.report["maker"]     # fill rate, queue ahead at join / at fill, markouts 
 `ctx.orders()` lists your working orders (no queue position — a venue does not tell you that); `ctx.cancel(id)`
 cancels one by its id or `client_id`. [examples/maker_quotes.py](examples/maker_quotes.py) quotes both sides.
 
+## Your own data: any Polymarket binary market
+
+The archive holds crypto Up/Down markets. For anything else — elections, sports, any market with two outcomes —
+bring the data: the same engine, fills, fees and report run on it.
+
+```python
+from outcometick.backtest import run, Dataset
+
+# A directory: markets.json (or .jsonl) at the top, CLOB market-channel frames in *.jsonl / *.jsonl.gz under it.
+result = run(MyStrategy, "my-polymarket-data")
+
+# Or in memory: Gamma market objects (or {market_id, token_ids, labels, ...}) and the frames you recorded.
+result = run(MyStrategy, Dataset.from_frames(gamma_markets, frames))
+
+# Or the single-book table shape (l2 rows with bid_prices/ask_prices/pc_price..., a trades table):
+result = run(MyStrategy, Dataset.from_pmdata(l2, trades, market=gamma_market))
+```
+
+- **Frames** are Polymarket's own: `book`, `price_change`, `best_bid_ask`, `last_trade_price`,
+  `market_resolved` — raw, or as rows with the frame under `payload` (the archive's shape). A frame is matched
+  to its market by condition id, slug or token id; every identifier it carries must agree.
+- **Orders can name an outcome**: `Order(side="Yes", ...)` or `"Lakers"` — any of the market's labels, or
+  UP/DOWN for outcome 0/1. A label the market does not have stops the run.
+- **Settlement only from evidence.** A market pays $1 / $0 (or 50:50) when Gamma says it resolved
+  (`umaResolutionStatus` and an exact `outcomePrices`), a `market_resolved` frame names the winner, or you give
+  `resolution: {outcome, resolved_ts_ms}` — and every source agrees. Trading ends the millisecond before the
+  outcome is public; nothing after it reaches your strategy, and the payout lands at that time.
+- **Unresolved markets are valued, not guessed.** When trading ends, open positions are valued at the external
+  mid (UP book, else the mirror of DOWN's, else the last public print), computed from the market data alone —
+  your own orders cannot move it. `mark_max_age_ms` refuses an old quote; a position with no usable mark is
+  valued at 0. The report separates `realised_pnl` from `marked_pnl` and says it is a valuation, not an exit.
+- **Strict.** A book row that cannot be read, or that names a token the market does not own, drops the whole
+  market (a partial book fills at prices that no longer exist); the report lists it with the reason.
+
 ## How a run works
 
 ```
@@ -183,7 +217,8 @@ cancels one by its id or `client_id`. [examples/maker_quotes.py](examples/maker_
   in the feed), book deltas are thinned to a capture cadence, and your orders have no market impact. They run
   on Polymarket only: the Predict.fun archive has no trade stream to advance a queue, so `gtc` is refused there.
   The independent auditor does not yet re-derive resting-order fills.
-- 5-minute and 15-minute crypto Up/Down markets, the ones the archive holds.
+- From the archive: 5-minute and 15-minute crypto Up/Down markets. Any other Polymarket binary market runs
+  from your own data ([above](#your-own-data-any-polymarket-binary-market)); the hosted backtester runs archive data only.
 - The Binance reference feed lives on the hosted runner, not in the archive, so strategies that read it run
   there. Your own CSV series (`series`, read with `ctx.ext()`) run with `ot run` and hosted; this runner refuses
   them for now rather than replaying without them.
