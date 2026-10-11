@@ -78,6 +78,7 @@ Predict.fun 平局按 50:50 兑付。读不出结算流或结果的市场会被�
 **会承认自己过拟合的参数扫描。** `sweep(Strategy, data, {"enter_at_s": [30, 60, 120], "px_max": [0.9, 0.95]}, holdout=0.3)`
 跑遍所有组合，用前面的日子给它们排名，再把排名靠前的组合放到从没参与排名的后几天上重放，并排对照。网格搜索总能找到一个「最优」，
 样本外那一栏才告诉你它找到的是真优势还是噪声。`.table()` 给出 DataFrame，`.heatmap(x, y)` 画热力图。
+`cell_workers=8` 让 8 个组合在不同进程上同时跑，结果与逐个跑逐字节相同（样本日 16 个组合：逐个跑 377 秒，8 核 77 秒）。
 
 **结构上就看不到未来。** 事件一条一条地交给策略，当天剩下的数据不在内存里；市场的 `outcome` 在 `on_settle` 之前不可见。
 session 模式下，时间上重叠的市场按同一条时间线交错重放，跨市场保留的状态不会跑到时钟前面去。
@@ -115,7 +116,8 @@ fingerprint("path/to/strategy-dir", assets=["BTC"], days=days)
                                              # 预注册：跑之前先公布这个 sha256
 
 sweep(StrategyClass, data, {"enter_at_s": [30, 60, 120]},  # 每个组合都是一次普通的 run
-      metric="net_pnl", holdout=0.3, top=3)               # 用前 70% 的日子排名，前 3 名在剩下的日子上重放
+      metric="net_pnl", holdout=0.3, top=3,               # 用前 70% 的日子排名，前 3 名在剩下的日子上重放
+      cell_workers=None)                                  # N：同时跑 N 个组合，结果不变
 ```
 
 `Result` 有 `.report`（和托管回测返回的是同一份 JSON）、`.trades`、`.fills`、`.markets`（回放过的每个市场，

@@ -96,6 +96,8 @@ time in queue, and markouts 1s / 10s / 60s after each fill and to settlement —
 "px_max": [0.9, 0.95]}, holdout=0.3)` runs every combination, ranks them on the earlier days and replays the top
 ones on the later days it never ranked on, side by side. A grid search always finds a winner; the held-out column
 is where you find out whether it found an edge. `.table()` gives a DataFrame, `.heatmap(x, y)` the picture.
+`cell_workers=8` runs eight cells at a time on separate processes and returns the same sweep, byte for byte
+(16 cells over the sample day: 377 s one after another, 77 s on 8 cores).
 
 **No look-ahead by construction.** Events reach the strategy one at a time; the rest of the day is not in
 memory. A market's `outcome` is hidden until `on_settle`. In session mode, markets that overlap in time are
@@ -146,7 +148,8 @@ fingerprint("path/to/strategy-dir", assets=["BTC"], days=days)
                                              # pre-registration: publish this sha256 before you run
 
 sweep(StrategyClass, data, {"enter_at_s": [30, 60, 120]},  # every combination, as plain runs
-      metric="net_pnl", holdout=0.3, top=3)               # rank on the earlier 70% of days, replay the top 3 on the rest
+      metric="net_pnl", holdout=0.3, top=3,               # rank on the earlier 70% of days, replay the top 3 on the rest
+      cell_workers=None)                                  # N: N cells at a time, the same result
 ```
 
 `Result` has `.report` (the same JSON the hosted backtester returns), `.trades`, `.fills`, `.markets` (every

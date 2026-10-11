@@ -188,7 +188,7 @@ async function zipRows(zip) {
 
 async function otRun(dir, root, extra = []) {
   const zip = path.join(dir, 'out.zip');
-  const { stdout } = await run(process.execPath, [OT, 'run', dir, '--data', root, '--json', '--out', zip, ...extra], {
+  const { stdout } = await run(process.execPath, [OT, 'run', dir, '--data', root, '--json', '--out', zip, '--cache', 'off', ...extra], {
     cwd: ROOT, maxBuffer: 256 * 1024 * 1024, env: { ...process.env, OT_PYTHON: PYTHON },
   });
   const report = JSON.parse(stdout.trim().split('\n').pop());
