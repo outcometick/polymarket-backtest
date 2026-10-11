@@ -184,6 +184,7 @@ result = run(MyStrategy, Dataset.from_pmdata(l2, trades, market=gamma_market))
 行情延迟让策略晚这么久才收到事件，而订单仍按平台盘口撮合（[§11](docs/methodology.md#11-timers-and-feed-latency-one-time-line)）。
 挂单可以用 `queue_model={"prob": "power", "n": 2}`（或 `power2`、`power3`、`log`、`log2`）估计无成交解释的档位减量中有多少发生在你前面，
 这是估计，请与默认的保守排队对比（[§12](docs/methodology.md#12-probabilistic-queue-models-optional)）。
+`record_ms=60000` 按时间网格记录账户价值（未平仓按最优买价估值）与回撤，见 `Result.record`（[§13](docs/methodology.md#13-the-recorder-mark-to-market-on-a-time-grid)）。
 
 ## 限制
 

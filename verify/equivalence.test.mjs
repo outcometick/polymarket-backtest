@@ -151,10 +151,14 @@ tpl, root, report_path, zip_path, out_path = sys.argv[1:6]
 r = run_template(tpl, root)
 z = zipfile.ZipFile(zip_path)
 def rows(name):
+    if name not in z.namelist():
+        return []
     return list(csv.DictReader(io.StringIO(z.read(name).decode("utf-8-sig"))))
 json.dump({"report": r.report, "trades": r.trades, "fills": r.fills, "markets": r.markets,
+           "record": r.record, "record_markets": r.record_markets,
            "js": {"report": json.load(open(report_path)), "trades": rows("trades.csv"), "fills": rows("fills.csv"),
-                  "markets": rows("markets.csv")}},
+                  "markets": rows("markets.csv"), "record": rows("record.csv"),
+                  "record_markets": rows("record_markets.csv")}},
           open(out_path, "w"))
 `;
 
@@ -393,6 +397,17 @@ STRATEGIES.maker_quotes_prob = {
   },
 };
 
+// The same quotes with the recorder on (record_ms): the account series and every
+// instance's samples, `ot run` against the Python library.
+STRATEGIES.maker_quotes_record = {
+  ...STRATEGIES.maker_quotes,
+  manifest: { ...STRATEGIES.maker_quotes.manifest, record_ms: 1000 },
+  expectReport: (report) => {
+    assert.equal(report.record?.truncated, false);
+    assert.ok(report.record.points > 10 && report.record.instances > 0, JSON.stringify(report.record));
+  },
+};
+
 /** Strategies a given archive can run: all of them, minus venue-specific ones. */
 const strategiesFor = (archiveName) => Object.keys(STRATEGIES)
   .filter((n) => !STRATEGIES[n].venues || STRATEGIES[n].venues.some((v) => archiveName.startsWith(v)));
@@ -487,6 +502,8 @@ test('outcometick.backtest reproduces `ot run`: every report field, trade and fi
         compareRows(`${label} trades`, got.trades, got.js.trades);
         compareRows(`${label} fills`, got.fills, got.js.fills);
         compareRows(`${label} markets`, got.markets, got.js.markets);
+        compareRows(`${label} record`, got.record, got.js.record);
+        compareRows(`${label} record_markets`, got.record_markets, got.js.record_markets);
         // `ot fingerprint` with the report's scope predicts the report's fingerprint.
         const { stdout: fpOut } = await run(process.execPath, [OT, 'fingerprint', dir, '--json', '--venue', report.scope.venue,
           '--assets', report.scope.assets.join(','), '--from', report.scope.from, '--to', report.scope.to], { cwd: ROOT });

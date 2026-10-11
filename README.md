@@ -137,7 +137,8 @@ run(StrategyClass, data,              # data: load_sample("polymarket" | "predic
     quote_guard=None,                 #   quote freshness / ask-sum guard, shared mirrored depth,
     mirror_depth=None, book_throttle=None,  #   and (local only) the archive book's thinning on or off
     feed_latency=None,                #   ms before the strategy hears of an event (§11; on_timer + ctx.schedule too)
-    queue_model=None)                 #   resting orders: {"prob": "power", "n": 2} etc. instead of the conservative queue (§12)
+    queue_model=None,                 #   resting orders: {"prob": "power", "n": 2} etc. instead of the conservative queue (§12)
+    record_ms=None)                   #   the account's value on a time grid, legs at the best bid (§13; Result.record)
 
 run_template("path/to/strategy-dir", data)   # a directory with outcometick.json, like `ot run`
 
