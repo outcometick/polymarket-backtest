@@ -50,7 +50,11 @@ result.plot()                            # needs matplotlib
 result.trades_df()                       # every trade (needs pandas)
 ```
 
-The first run over a day decodes it (a few minutes for a busy day); the decoded day is cached, so the next run
+Decoding a day uses every CPU core, with the single-process result byte for byte. Pass `workers=8` (or however many
+cores you have) and the markets are replayed in parallel too — same rows, totals and logs, as long as the strategy
+keeps its state on the instance, which market mode's contract asks for anyway (state found on the class or in params
+makes the run replay in one process instead). On an 8-core laptop the free sample day (289 markets, 7.6 million
+events) takes about 30 s the first time and about 5 s after that with `workers=8`. The decoded day is cached, so the next run
 over it starts at once. [notebooks/quickstart.ipynb](notebooks/quickstart.ipynb) walks through a full example
 with its output.
 
@@ -88,6 +92,11 @@ for a short lag window, and a cancelled one stays exposed for it. Entry and canc
 fill for fill. The report adds what a market maker looks at: fill rate, queue position at entry and at fill,
 time in queue, and markouts 1s / 10s / 60s after each fill and to settlement — adverse selection, in numbers.
 
+**Parameter sweeps that admit when they are overfitted.** `sweep(Strategy, data, {"enter_at_s": [30, 60, 120],
+"px_max": [0.9, 0.95]}, holdout=0.3)` runs every combination, ranks them on the earlier days and replays the top
+ones on the later days it never ranked on, side by side. A grid search always finds a winner; the held-out column
+is where you find out whether it found an edge. `.table()` gives a DataFrame, `.heatmap(x, y)` the picture.
+
 **No look-ahead by construction.** Events reach the strategy one at a time; the rest of the day is not in
 memory. A market's `outcome` is hidden until `on_settle`. In session mode, markets that overlap in time are
 replayed interleaved in one time order, so state carried across markets never runs ahead of the clock.
@@ -121,9 +130,13 @@ run(StrategyClass, data,              # data: load_sample("polymarket" | "predic
     latency_ms=250,                   # decision-to-fill delay (also when a resting order arrives)
     cancel_latency_ms=None,           # ctx.cancel() to venue; None: same as latency_ms
     fee_bps=None,                     # None: each market's venue fee; a number: flat override
-    params={"enter_at_s": 60})        # read as ctx.p
+    params={"enter_at_s": 60},        # read as ctx.p
+    workers=None)                     # None: decode on every core, replay in one process; N: both on N
 
 run_template("path/to/strategy-dir", data)   # a directory with outcometick.json, like `ot run`
+
+sweep(StrategyClass, data, {"enter_at_s": [30, 60, 120]},  # every combination, as plain runs
+      metric="net_pnl", holdout=0.3, top=3)               # rank on the earlier 70% of days, replay the top 3 on the rest
 ```
 
 `Result` has `.report` (the same JSON the hosted backtester returns), `.trades`, `.fills`, `.logs`,

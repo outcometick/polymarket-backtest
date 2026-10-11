@@ -46,7 +46,9 @@ result.plot()                            # 需要 matplotlib
 result.trades_df()                       # 全部成交（需要 pandas）
 ```
 
-第一次跑某一天时要先解码（交易活跃的一天要几分钟），解码结果会缓存，之后再跑这一天立刻开始。
+解码一天的数据会用满所有 CPU 核，结果与单进程逐字节相同。传 `workers=8`（或你的核数），各市场也会并行回放——逐笔成交、合计、日志都不变，
+前提是策略把状态放在实例上，这本来就是 market 模式的契约（如果检测到状态放在类上或参数里，会改用单进程回放）。在 8 核笔记本上，
+免费样本日（289 个市场、761 万个事件）用 `workers=8` 第一次跑约 30 秒，之后约 5 秒。解码结果会缓存，之后再跑这一天立刻开始。
 [notebooks/quickstart.ipynb](notebooks/quickstart.ipynb) 是一个带运行结果的完整示例。
 
 ## 它做对了什么
@@ -72,6 +74,10 @@ Predict.fun 平局按 50:50 兑付。读不出结算流或结果的市场会被�
 （按那部分量原来的价位扣）；新挂单在一个很短的滞后窗口内忽略所有成交，撤单后在这个窗口内仍会暴露。下单延迟和撤单延迟分开设置
 （`latency_ms`、`cancel_latency_ms`），挂单成交不收手续费（不计返佣），两个引擎逐笔一致。报告加上做市最看重的指标：成交率、入队时和成交时的
 前方排队量、排队时长，以及每笔成交后 1 秒 / 10 秒 / 60 秒和到结算的价格走势——逆向选择有多严重，直接看数字。
+
+**会承认自己过拟合的参数扫描。** `sweep(Strategy, data, {"enter_at_s": [30, 60, 120], "px_max": [0.9, 0.95]}, holdout=0.3)`
+跑遍所有组合，用前面的日子给它们排名，再把排名靠前的组合放到从没参与排名的后几天上重放，并排对照。网格搜索总能找到一个「最优」，
+样本外那一栏才告诉你它找到的是真优势还是噪声。`.table()` 给出 DataFrame，`.heatmap(x, y)` 画热力图。
 
 **结构上就看不到未来。** 事件一条一条地交给策略，当天剩下的数据不在内存里；市场的 `outcome` 在 `on_settle` 之前不可见。
 session 模式下，时间上重叠的市场按同一条时间线交错重放，跨市场保留的状态不会跑到时钟前面去。
@@ -100,9 +106,13 @@ run(StrategyClass, data,              # data：load_sample("polymarket" | "predi
     latency_ms=250,                   # 下单到成交的延迟（挂单到达平台也用它）
     cancel_latency_ms=None,           # ctx.cancel() 到达平台的延迟；None：同 latency_ms
     fee_bps=None,                     # None：按每个市场的平台费率；数字：统一费率覆盖
-    params={"enter_at_s": 60})        # 在策略里用 ctx.p 读
+    params={"enter_at_s": 60},        # 在策略里用 ctx.p 读
+    workers=None)                     # None：解码用满所有核、回放单进程；N：解码和回放都用 N 个进程
 
 run_template("path/to/strategy-dir", data)   # 含 outcometick.json 的策略目录，和 `ot run` 一样
+
+sweep(StrategyClass, data, {"enter_at_s": [30, 60, 120]},  # 每个组合都是一次普通的 run
+      metric="net_pnl", holdout=0.3, top=3)               # 用前 70% 的日子排名，前 3 名在剩下的日子上重放
 ```
 
 `Result` 有 `.report`（和托管回测返回的是同一份 JSON）、`.trades`、`.fills`、`.logs`、`.summary()`、`.plot()`、
