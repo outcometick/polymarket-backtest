@@ -141,12 +141,17 @@ run(StrategyClass, data,              # data: load_sample("polymarket" | "predic
 
 run_template("path/to/strategy-dir", data)   # a directory with outcometick.json, like `ot run`
 
+fingerprint("path/to/strategy-dir", assets=["BTC"], days=days)
+                                             # pre-registration: publish this sha256 before you run
+
 sweep(StrategyClass, data, {"enter_at_s": [30, 60, 120]},  # every combination, as plain runs
       metric="net_pnl", holdout=0.3, top=3)               # rank on the earlier 70% of days, replay the top 3 on the rest
 ```
 
-`Result` has `.report` (the same JSON the hosted backtester returns), `.trades`, `.fills`, `.logs`,
-`.summary()`, `.plot()`, `.trades_df()`, `.fills_df()`.
+`Result` has `.report` (the same JSON the hosted backtester returns), `.trades`, `.fills`, `.markets` (every
+market replayed, entered or not), `.logs`, `.summary()`, `.plot()`, `.trades_df()`, `.fills_df()`, `.markets_df()`.
+`report["fingerprint"]` is the same sha256 `fingerprint()` printed before the run (Methodology §7). These calls run
+the strategy inside your process: for a fully isolated reproduction use `ot run` or the hosted backtester.
 
 A resting quote, and the numbers it is judged by:
 

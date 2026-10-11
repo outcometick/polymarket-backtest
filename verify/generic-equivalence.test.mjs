@@ -343,7 +343,10 @@ for (const [name, s] of Object.entries(STRATEGIES)) {
     const rep = stable(got.py.report);
     assert.deepEqual(stable(got.lib.report), rep);
     const jsRep = stable(got.js.report);
-    for (const k of ['language']) { delete jsRep[k]; delete rep[k]; }
+    // Two strategies in two languages: different code, so a different
+    // fingerprint by design. lib vs ot run above is the same directory.
+    assert.ok(rep.fingerprint?.sha256, 'a generic run carries a fingerprint');
+    for (const k of ['language', 'fingerprint']) { delete jsRep[k]; delete rep[k]; }
     assert.deepEqual(jsRep, rep);
     assert.equal(rep.data_kind, 'generic');
     assert.ok(got.js.trades.some((t) => t.label), 'rows carry labels');

@@ -152,8 +152,9 @@ r = run_template(tpl, root)
 z = zipfile.ZipFile(zip_path)
 def rows(name):
     return list(csv.DictReader(io.StringIO(z.read(name).decode("utf-8-sig"))))
-json.dump({"report": r.report, "trades": r.trades, "fills": r.fills,
-           "js": {"report": json.load(open(report_path)), "trades": rows("trades.csv"), "fills": rows("fills.csv")}},
+json.dump({"report": r.report, "trades": r.trades, "fills": r.fills, "markets": r.markets,
+           "js": {"report": json.load(open(report_path)), "trades": rows("trades.csv"), "fills": rows("fills.csv"),
+                  "markets": rows("markets.csv")}},
           open(out_path, "w"))
 `;
 
@@ -465,15 +466,18 @@ test('the Python decoder produces the same events as the JS decoder', { timeout:
 
 test('outcometick.backtest reproduces `ot run`: every report field, trade and fill', { timeout: 60 * 60_000 }, async () => {
   const { work, list } = await archives();
+  let sawUnentered = 0;
   const pkg = await pythonPackage(path.join(work, 'pkg'));
   try {
     for (const a of list) {
       for (const name of strategiesFor(a.name)) {
         const dir = await strategyDir(work, name, 'python', a.name.replace(/\W+/g, '_'));
         const { report, zip } = await otRun(dir, a.root);
-        await writeFile(path.join(dir, 'report.json'), JSON.stringify(report));
-        const outPath = path.join(dir, 'py.json');
-        await py(pkg, PY_RUN, [dir, a.root, path.join(dir, 'report.json'), zip, outPath]);
+        // Beside the strategy directory, not in it: every file in it is part
+        // of the run's fingerprint, and the Python run reads the directory next.
+        await writeFile(`${dir}.report.json`, JSON.stringify(report));
+        const outPath = `${dir}.py.json`;
+        await py(pkg, PY_RUN, [dir, a.root, `${dir}.report.json`, zip, outPath]);
         const got = JSON.parse(await readFile(outPath, 'utf8'), noNegZero);
         const label = `${a.name} / ${name}`;
         const { budget: _a, ...mine } = got.report;
@@ -482,6 +486,22 @@ test('outcometick.backtest reproduces `ot run`: every report field, trade and fi
         STRATEGIES[name].expectReport?.(report);
         compareRows(`${label} trades`, got.trades, got.js.trades);
         compareRows(`${label} fills`, got.fills, got.js.fills);
+        compareRows(`${label} markets`, got.markets, got.js.markets);
+        // `ot fingerprint` with the report's scope predicts the report's fingerprint.
+        const { stdout: fpOut } = await run(process.execPath, [OT, 'fingerprint', dir, '--json', '--venue', report.scope.venue,
+          '--assets', report.scope.assets.join(','), '--from', report.scope.from, '--to', report.scope.to], { cwd: ROOT });
+        // Everything but the files read, which only the run itself knows.
+        const { inputs_sha256: readFiles, ...plan } = report.fingerprint;
+        assert.deepEqual({ ...JSON.parse(fpOut).fingerprint, inputs_sha256: undefined }, { ...plan, inputs_sha256: undefined },
+          `${label}: ot fingerprint`);
+        assert.ok(report.fingerprint?.code_sha256, `${label}: code covered`);
+        assert.ok(readFiles, `${label}: the files read are reported`);
+        // Every distinct market replayed is a row, entered or not (scanned.markets
+        // counts day entries: a market across midnight is in two days).
+        const entered = got.js.markets.filter((m) => m.entered === 'true').length;
+        if (got.js.markets.length > entered) sawUnentered += 1;
+        assert.equal(entered, report.metrics.markets_traded, `${label}: entered rows`);
+        assert.ok(got.js.markets.length >= entered && got.js.markets.length <= report.scanned.markets, `${label}: markets.csv rows`);
         assert.ok(!/LOOKAHEAD/.test(JSON.stringify(got.report)), `${label}: look-ahead`);
         if (name === 'maker_quotes') {
           // Agreement on an empty block would prove nothing.
@@ -489,6 +509,7 @@ test('outcometick.backtest reproduces `ot run`: every report field, trade and fi
         }
       }
     }
+    assert.ok(sawUnentered > 0, 'no run left a market unentered: markets.csv never showed one');
   } finally {
     await rm(work, { recursive: true, force: true });
   }

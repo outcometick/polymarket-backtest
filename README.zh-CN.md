@@ -111,12 +111,17 @@ run(StrategyClass, data,              # data：load_sample("polymarket" | "predi
 
 run_template("path/to/strategy-dir", data)   # 含 outcometick.json 的策略目录，和 `ot run` 一样
 
+fingerprint("path/to/strategy-dir", assets=["BTC"], days=days)
+                                             # 预注册：跑之前先公布这个 sha256
+
 sweep(StrategyClass, data, {"enter_at_s": [30, 60, 120]},  # 每个组合都是一次普通的 run
       metric="net_pnl", holdout=0.3, top=3)               # 用前 70% 的日子排名，前 3 名在剩下的日子上重放
 ```
 
-`Result` 有 `.report`（和托管回测返回的是同一份 JSON）、`.trades`、`.fills`、`.logs`、`.summary()`、`.plot()`、
-`.trades_df()`、`.fills_df()`。
+`Result` 有 `.report`（和托管回测返回的是同一份 JSON）、`.trades`、`.fills`、`.markets`（回放过的每个市场，
+入场与否都有一行）、`.logs`、`.summary()`、`.plot()`、`.trades_df()`、`.fills_df()`、`.markets_df()`。
+`report["fingerprint"]` 就是跑之前 `fingerprint()` 算出的那个 sha256（Methodology §7）。这些调用在你的 Python 进程里运行策略；
+需要完全隔离的复现请用 `ot run` 或托管回测。
 
 挂一张单，以及用来评判它的数字：
 
