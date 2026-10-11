@@ -167,6 +167,14 @@ result = run(MyStrategy, Dataset.from_pmdata(l2, trades, market=gamma_market))
 - **严格。** 读不出的盘口行、或指向别的市场 token 的行，会让整个市场不参与回放（残缺的盘口会在已经不存在的价格上
   成交），报告里列出原因。
 
+## 执行选项
+
+默认全部关闭，`run(...)` 的参数与清单字段同名：`fok=True`（全成或全撤）、`order_rules="assumed"`（归档：价格网格 0.001、
+最少 5 股、数量以 0.01 股为单位）或 `"venue"`（你自己的数据）、`maker_rebate=0.2`（挂单返佣估算）、
+`quote_guard={"max_age_ms": 1500, "ask_sum": [0.92, 1.08]}`、`mirror_depth="shared"`（单盘口市场），以及只在本地的
+`book_throttle=False`（不抽稀地回放归档盘口，报告写明实际用的抽稀档位）。细节见
+[Methodology §10](docs/methodology.md#10-execution-options)。
+
 ## 限制
 
 - 挂单：排队位置是从聚合档位估算的（数据里没有单个挂单），盘口增量按采集频率抽稀，你的订单不产生市场冲击。挂单只支持 Polymarket：

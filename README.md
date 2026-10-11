@@ -131,7 +131,11 @@ run(StrategyClass, data,              # data: load_sample("polymarket" | "predic
     cancel_latency_ms=None,           # ctx.cancel() to venue; None: same as latency_ms
     fee_bps=None,                     # None: each market's venue fee; a number: flat override
     params={"enter_at_s": 60},        # read as ctx.p
-    workers=None)                     # None: decode on every core, replay in one process; N: both on N
+    workers=None,                     # None: decode on every core, replay in one process; N: both on N
+    fok=False, order_rules=None,      # execution options, all off by default — see Methodology §10:
+    maker_rebate=None,                #   fill-or-kill, venue order rules, maker rebate estimate,
+    quote_guard=None,                 #   quote freshness / ask-sum guard, shared mirrored depth,
+    mirror_depth=None, book_throttle=None)  #   and (local only) the archive book's thinning on or off
 
 run_template("path/to/strategy-dir", data)   # a directory with outcometick.json, like `ot run`
 
