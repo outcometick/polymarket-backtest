@@ -5,7 +5,7 @@
 Chainlink 结算流以 1 美元 / 0 美元结算，并扣除平台的吃单手续费。在自己电脑上、在 notebook 里就能跑，不依赖其它包。
 做市策略可以挂限价单：排队模型按 Polymarket 实际的撮合记录方式建立，报告给出成交后的价格走势，看这些成交值不值。
 
-[English](README.md) · **简体中文** · [方法说明](docs/methodology.md)（英文） · [我们怎么验证](docs/verification.md)（英文） ·
+[English](README.md) · **简体中文** · [文档站](https://outcometick.github.io/polymarket-backtest/)（英文） · [方法说明](docs/methodology.md)（英文） · [我们怎么验证](docs/verification.md)（英文） ·
 JavaScript / TypeScript 版：[polymarket-backtest-js](https://github.com/outcometick/polymarket-backtest-js)
 
 > 出自 [outcometick.com](https://outcometick.com/zh)：这里重放的 Polymarket 与 Predict.fun 逐笔数据归档就来自那里；

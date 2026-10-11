@@ -1,0 +1,84 @@
+# The documentation site of github.com/outcometick/polymarket-backtest, built by
+# .github/workflows/docs.yml and served on GitHub Pages. docs/index.md and
+# docs/zh.md are the READMEs with their links pointed at the site or the
+# repository (scripts/publish-backtest-repo.mjs); the API page is rendered from
+# the docstrings of the package in this repository.
+site_name: outcometick backtest
+site_url: https://outcometick.github.io/polymarket-backtest/
+site_description: >-
+  Tick-level backtesting for Polymarket and Predict.fun crypto Up/Down markets, and any Polymarket
+  binary market from your own data, in plain Python.
+repo_url: https://github.com/outcometick/polymarket-backtest
+repo_name: outcometick/polymarket-backtest
+# Generated from the outcometick monorepo: an edit link would invite edits that get overwritten.
+edit_uri: ""
+copyright: Built by <a href="https://outcometick.com">outcometick.com</a>
+
+theme:
+  name: material
+  features:
+    - content.code.copy
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Light mode
+
+nav:
+  - Home: index.md
+  - Methodology: methodology.md
+  - How we verify it: verification.md
+  - API reference: api.md
+  - 简体中文: zh.md
+
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+      # GitHub's heading anchors (Unicode kept), so the READMEs' in-page links work on both.
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.highlight
+  - pymdownx.superfences
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [.]
+          options:
+            extensions:
+              - docs_site/docstring_tables.py
+            docstring_style: null
+            show_source: false
+            show_root_heading: true
+            show_root_full_path: false
+            heading_level: 3
+            members_order: source
+            separate_signature: true
+            show_signature_annotations: true
+            filters: ["!^_"]
