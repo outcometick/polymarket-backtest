@@ -381,6 +381,17 @@ export class S extends Strategy {
 `,
 };
 
+// The same quotes under a probabilistic queue model (phase 2c): the whole local
+// stack -- manifest, policy, both engines, the report's model name -- end to end.
+STRATEGIES.maker_quotes_prob = {
+  ...STRATEGIES.maker_quotes,
+  manifest: { ...STRATEGIES.maker_quotes.manifest, queue_model: { prob: 'power', n: 2 } },
+  expectReport: (report) => {
+    assert.equal(report.maker.queue_model, 'polymarket-queue-v1+prob-v1');
+    assert.deepEqual(report.maker.queue_prob, { prob: 'power', n: 2 });
+  },
+};
+
 /** Strategies a given archive can run: all of them, minus venue-specific ones. */
 const strategiesFor = (archiveName) => Object.keys(STRATEGIES)
   .filter((n) => !STRATEGIES[n].venues || STRATEGIES[n].venues.some((v) => archiveName.startsWith(v)));
@@ -468,6 +479,7 @@ test('outcometick.backtest reproduces `ot run`: every report field, trade and fi
         const { budget: _a, ...mine } = got.report;
         const { budget: _b, ...theirs } = got.js.report;
         assert.deepStrictEqual(mine, theirs, `${label}: reports differ`);
+        STRATEGIES[name].expectReport?.(report);
         compareRows(`${label} trades`, got.trades, got.js.trades);
         compareRows(`${label} fills`, got.fills, got.js.fills);
         assert.ok(!/LOOKAHEAD/.test(JSON.stringify(got.report)), `${label}: look-ahead`);

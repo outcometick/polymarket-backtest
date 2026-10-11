@@ -175,6 +175,11 @@ result = run(MyStrategy, Dataset.from_pmdata(l2, trades, market=gamma_market))
 `book_throttle=False`（不抽稀地回放归档盘口，报告写明实际用的抽稀档位）。细节见
 [Methodology §10](docs/methodology.md#10-execution-options)。
 
+定义 `on_timer` 并用 `ctx.schedule(at_ms, tag)`，或设 `feed_latency=50`，同一次运行的所有市场走同一条时间线：定时器在指定时刻唤醒策略，
+行情延迟让策略晚这么久才收到事件，而订单仍按平台盘口撮合（[§11](docs/methodology.md#11-timers-and-feed-latency-one-time-line)）。
+挂单可以用 `queue_model={"prob": "power", "n": 2}`（或 `power2`、`power3`、`log`、`log2`）估计无成交解释的档位减量中有多少发生在你前面，
+这是估计，请与默认的保守排队对比（[§12](docs/methodology.md#12-probabilistic-queue-models-optional)）。
+
 ## 限制
 
 - 挂单：排队位置是从聚合档位估算的（数据里没有单个挂单），盘口增量按采集频率抽稀，你的订单不产生市场冲击。挂单只支持 Polymarket：
