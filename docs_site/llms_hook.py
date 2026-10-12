@@ -90,6 +90,10 @@ def _strip_html_comments(md: str) -> str:
     return re.sub(r"<!--.*?-->\n?", "", md, flags=re.S)
 
 
+def _strip_front_matter(md: str) -> str:
+    return re.sub(r"\A---\n.*?\n---\n", "", md, flags=re.S)
+
+
 def on_post_build(config, **kwargs):
     site, docs = config["site_dir"], config["docs_dir"]
     root = os.path.dirname(config["config_file_path"])
@@ -99,7 +103,7 @@ def on_post_build(config, **kwargs):
             text = _api_text(root)
         else:
             with open(os.path.join(docs, src), encoding="utf-8") as fh:
-                text = _strip_html_comments(fh.read())
+                text = _strip_html_comments(_strip_front_matter(fh.read()))
         texts[served] = text
         with open(os.path.join(site, served), "w", encoding="utf-8") as fh:
             fh.write(text)

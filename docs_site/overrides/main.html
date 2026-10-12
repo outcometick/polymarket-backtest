@@ -1,4 +1,15 @@
 {% extends "base.html" %}
+{#- extra.alternate puts the language switcher in the header; Material also writes it as hreflang links on every
+    page, but only the home page and zh.md are translations of each other, so other pages drop them. -#}
+{% block site_meta %}
+  {%- set ns = namespace(meta=super()) -%}
+  {%- if page and page.file.src_uri not in ("index.md", "zh.md") -%}
+    {%- for alt in config.extra.alternate -%}
+      {%- set ns.meta = ns.meta | replace('<link rel="alternate" href="' ~ (alt.link | url) ~ '" hreflang="' ~ alt.lang ~ '">', '') -%}
+    {%- endfor -%}
+  {%- endif -%}
+  {{ ns.meta }}
+{% endblock %}
 {% block extrahead %}
   {{ super() }}
   <link rel="alternate" type="text/markdown" href="{{ base_url }}/llms.txt" title="llms.txt">

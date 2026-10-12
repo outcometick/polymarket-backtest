@@ -1,3 +1,6 @@
+---
+title: "outcometick 回测 · Python"
+---
 <!-- Generated from the outcometick monorepo by scripts/publish-backtest-repo.mjs. Edits here are overwritten; open an issue or a PR and it is ported back. -->
 # outcometick 回测 · Python
 
