@@ -16,6 +16,7 @@ copyright: Built by <a href="https://outcometick.com">outcometick.com</a>
 
 theme:
   name: material
+  custom_dir: docs_site/overrides
   features:
     - content.code.copy
     - navigation.top
@@ -40,6 +41,7 @@ theme:
 
 nav:
   - Home: index.md
+  - For AI agents: agents.md
   - Methodology: methodology.md
   - How we verify it: verification.md
   - API reference: api.md
@@ -63,6 +65,10 @@ markdown_extensions:
           case: lower
   - pymdownx.highlight
   - pymdownx.superfences
+
+# llms.txt, llms-full.txt and a .md copy of every page, for AI agents.
+hooks:
+  - docs_site/llms_hook.py
 
 plugins:
   - search

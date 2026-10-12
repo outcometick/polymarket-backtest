@@ -23,6 +23,8 @@ jobs:
           python-version: '3.12'
       - run: pip install -r docs_site/requirements.txt
       - run: mkdocs build --strict
+      # The files agents read (docs_site/llms_hook.py) must be there.
+      - run: test -s site/llms.txt && test -s site/llms-full.txt && test -s site/agents.md && test -s site/api.md
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

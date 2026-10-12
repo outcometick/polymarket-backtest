@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block extrahead %}
+  {{ super() }}
+  <link rel="alternate" type="text/markdown" href="{{ base_url }}/llms.txt" title="llms.txt">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareSourceCode",
+    "name": "outcometick backtest",
+    "description": "Tick-level backtesting for Polymarket and Predict.fun crypto Up/Down markets, and any Polymarket binary market from your own data, in Python and JavaScript: real order book, venue taker fees, settlement on each market's own Chainlink stream.",
+    "codeRepository": "https://github.com/outcometick/polymarket-backtest",
+    "programmingLanguage": ["Python", "JavaScript", "TypeScript"],
+    "runtimePlatform": "Python 3.10+",
+    "license": "https://github.com/outcometick/polymarket-backtest/blob/main/LICENSE",
+    "keywords": ["Polymarket", "backtesting", "prediction markets", "order book", "Chainlink", "Predict.fun", "quant"],
+    "url": "https://outcometick.github.io/polymarket-backtest/",
+    "author": { "@type": "Organization", "name": "outcometick", "url": "https://outcometick.com" }
+  }
+  </script>
+{% endblock %}
