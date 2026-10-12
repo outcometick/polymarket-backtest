@@ -42,10 +42,11 @@ API_OBJECTS = [
 ]
 
 SUMMARY = (
-    "Tick-level backtesting for Polymarket and Predict.fun crypto Up/Down markets, and for any Polymarket binary "
-    "market from your own data, in plain Python (also JavaScript/TypeScript). Strategies are replayed against the "
-    "archived order book, settled at $1/$0 on each market's official outcome from the Chainlink stream it settled on, "
-    "and charged the venue's taker fee. `pip install outcometick`; a free real archive day via `load_sample()`."
+    "An open-source tick-level backtester for Polymarket, in plain Python (also JavaScript/TypeScript): any binary "
+    "market (elections, sports, crypto) from order-book data you recorded, or a ready-made archive of Polymarket and "
+    "Predict.fun crypto Up/Down markets. Strategies are replayed against the order book event by event, fills walk the "
+    "depth, markets settle at $1/$0 only on evidence of the outcome, and every fill pays the venue's taker fee. "
+    "`pip install outcometick`; a free real archive day via `load_sample()`."
 )
 
 FACTS = """Key facts:

@@ -9,10 +9,12 @@ to its path (for example [methodology.md](methodology.md)).
 
 ## What it is
 
-`outcometick.backtest` replays a strategy against archived order books of Polymarket and Predict.fun crypto Up/Down
-markets (5- and 15-minute on Polymarket; Predict.fun also hourly and daily), or against your own data for any
-Polymarket binary market. Each market settles at $1 / $0 on its official outcome — from the Chainlink stream that
-market actually settled on — and every fill pays that market's taker fee. Pure Python 3.10+; the same engine runs in
+`outcometick.backtest` is a general tick-level backtester for Polymarket: any binary market (elections, sports,
+crypto) from order-book data you recorded — Polymarket's CLOB frames or a table, see
+[Your own data](index.md#your-own-data-any-polymarket-binary-market) — or a ready-made archive of Polymarket and
+Predict.fun crypto Up/Down markets (5- and 15-minute on Polymarket; Predict.fun also hourly and daily), with one
+free day via `load_sample()`. Each market settles at $1 / $0 only on evidence of its outcome (for the archive's
+crypto markets, the Chainlink stream that market settled on), and every fill pays the venue's taker fee. Pure Python 3.10+; the same engine runs in
 JavaScript (`npm i -g outcometick`, `ot run`) and on the hosted backtester, with identical results.
 
 ## Smallest program that runs

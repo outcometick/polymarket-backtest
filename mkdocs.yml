@@ -6,8 +6,8 @@
 site_name: outcometick backtest
 site_url: https://outcometick.github.io/polymarket-backtest/
 site_description: >-
-  Tick-level backtesting for Polymarket and Predict.fun crypto Up/Down markets, and any Polymarket
-  binary market from your own data, in plain Python.
+  Open-source tick-level backtester for Polymarket in plain Python: any binary market from order-book
+  data you recorded, or a ready-made Polymarket and Predict.fun crypto archive.
 repo_url: https://github.com/outcometick/polymarket-backtest
 repo_name: outcometick/polymarket-backtest
 # Generated from the outcometick monorepo: an edit link would invite edits that get overwritten.

@@ -1,15 +1,16 @@
 <!-- Generated from the outcometick monorepo by scripts/publish-backtest-repo.mjs. Edits here are overwritten; open an issue or a PR and it is ported back. -->
 # outcometick 回测 · Python
 
-**用普通 Python 对 Polymarket 与 Predict.fun 加密货币涨跌市场做逐笔回测；自带数据时，任意 Polymarket 二元市场都能回测。** 策略按归档的真实盘口重放，按每个市场实际使用的
-Chainlink 结算流以 1 美元 / 0 美元结算，并扣除平台的吃单手续费。在自己电脑上、在 notebook 里就能跑，不依赖其它包。
+**用普通 Python 写的 Polymarket 逐笔回测引擎。** 任意二元市场——选举、体育、加密货币，只要是两个结果的市场——用你自己录下的盘口数据
+（Polymarket 原生的 CLOB 帧，或表格）就能回测；也可以先用一天免费的真实归档上手。策略按盘口逐个事件重放，按当时挂着的深度逐档成交，
+每个市场只在有结果凭据时以 1 美元 / 0 美元结算，每笔成交都扣平台的吃单手续费。在自己电脑上、在 notebook 里就能跑，不依赖其它包。
 做市策略可以挂限价单：排队模型按 Polymarket 实际的撮合记录方式建立，报告给出成交后的价格走势，看这些成交值不值。
 
 [English](README.md) · **简体中文** · [文档站](https://outcometick.github.io/polymarket-backtest/)（英文） · [给 AI agent 的说明](https://outcometick.github.io/polymarket-backtest/agents.html)（英文） · [方法说明](docs/methodology.md)（英文） · [我们怎么验证](docs/verification.md)（英文） ·
 JavaScript / TypeScript 版：[polymarket-backtest-js](https://github.com/outcometick/polymarket-backtest-js)
 
-> 出自 [outcometick.com](https://outcometick.com/zh)：这里重放的 Polymarket 与 Predict.fun 逐笔数据归档就来自那里；
-> 网站上还有[托管回测](https://outcometick.com/zh/backtest)，在我们的机器上跑同一个策略。[详见下文。](#outcometickcom-上还有什么)
+> 开源（MIT），由 [outcometick.com](https://outcometick.com/zh) 维护。它另外提供现成的 Polymarket 与 Predict.fun 加密涨跌市场逐笔归档，
+> 以及在它机器上跑同一个策略的[托管回测](https://outcometick.com/zh/backtest)——这两样都不是必需的。[详见下文。](#outcometickcom-上还有什么)
 
 ```bash
 pip install outcometick        # Python 3.10+，不需要别的
@@ -46,6 +47,17 @@ result.plot()                            # 需要 matplotlib
 result.trades_df()                       # 全部成交（需要 pandas）
 ```
 
+上面跑的是一天免费归档，不需要你自己的数据。想在自己录下的市场上跑同一个类（任意 Polymarket 二元市场），把数据换成你的：
+
+```python
+from outcometick.backtest import run, Dataset
+
+result = run(Favourite, "my-polymarket-data")                      # 你录下的 markets.json + CLOB 帧
+result = run(Favourite, Dataset.from_frames(gamma_markets, frames))   # 或者直接从内存传入
+```
+
+格式和结算规则见下文[用你自己的数据](#用你自己的数据任意-polymarket-二元市场)。
+
 解码一天的数据会用满所有 CPU 核，结果与单进程逐字节相同。传 `workers=8`（或你的核数），各市场也会并行回放——逐笔成交、合计、日志都不变，
 前提是策略把状态放在实例上，这本来就是 market 模式的契约（如果检测到状态放在类上或参数里，会改用单进程回放）。在 8 核笔记本上，
 免费样本日（289 个市场、761 万个事件）用 `workers=8` 第一次跑约 30 秒，之后约 5 秒。解码结果会缓存，之后再跑这一天立刻开始。
@@ -53,9 +65,10 @@ result.trades_df()                       # 全部成交（需要 pandas）
 
 ## 它做对了什么
 
-**结算按平台规则，不做近似。** Polymarket 的加密市场在一条 Chainlink 流上结算：瞬时流、30 秒 TWAP 或 60 秒 TWAP，用哪条写在
-市场自己的配置里（`twapLookbackSeconds`），不按日期推。每个市场都对着自己的结算流重放，按官方结果兑付 1 美元或 0 美元；
-Predict.fun 平局按 50:50 兑付。读不出结算流或结果的市场会被剔除并在报告里列出，绝不靠猜来结算。
+**结算按平台规则，不做近似。** 市场只在有结果凭据时兑付 1 美元或 0 美元：用你自己的数据时，凭据是 Gamma 的结算状态、
+`market_resolved` 帧或你给出的结果，几处必须一致；用归档里的加密市场时，按该市场实际使用的 Chainlink 结算流上的官方结果——瞬时流、
+30 秒 TWAP 或 60 秒 TWAP，用哪条写在市场自己的配置里（`twapLookbackSeconds`），不按日期推。Predict.fun 平局按 50:50 兑付。
+读不出结果的市场会被剔除并在报告里列出，绝不靠猜来结算。
 
 **每个市场两本盘口。** UP 和 DOWN 是两个代币，各有自己的买卖档位。买 UP 吃 UP 的卖档，平仓卖进 UP 的买档。
 （Predict.fun 每个市场只发布一本盘口，所以它的 DOWN 一侧是 UP 的镜像。）
