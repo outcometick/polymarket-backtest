@@ -1,14 +1,7 @@
-// A small synthetic archive, laid out and spelled exactly like the real one,
-// built to contain the cases the public samples do not: a market crossing
-// midnight, a market with no settlement ticks, an unresolved one, a TIE, fees
-// off and unreadable, a market on the 30s TWAP, five kinds of event on one
-// millisecond, a price_change stream dense enough to be thinned, best_bid_ask
-// bounds that delete levels, an empty file, a Predict feed id that belongs to
-// no market.
-//
-// Used by client/backtest/equivalence.test.mjs, which decodes and replays it
-// through the JS (queue / `ot run`) path and through the pure-Python package
-// and requires the same answer. Row shapes copied from the 2026-09-08 sample.
+// Synthetic archives for JS/Python equivalence tests, using 2026-09-08 sample
+// row shapes. Cases include midnight crossings, missing settlement, unresolved
+// and tied outcomes, fee variants, 30s TWAP, event ties, thinning, book bounds,
+// empty files and an unmatched Predict feed id.
 
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -29,13 +22,13 @@ async function put(root, rel, bytes) {
   await writeFile(full, bytes);
 }
 
-/** A deterministic stream of small integers, so a fixture never changes. */
+/** A seeded stream of values in [0, 1). */
 function lcg(seed) {
   let x = seed >>> 0;
   return () => { x = (Math.imul(x, 1664525) + 1013904223) >>> 0; return x / 2 ** 32; };
 }
 
-const tok = (n) => String(10n ** 70n + BigInt(n));      // token ids are 77-digit decimal strings
+const tok = (n) => String(10n ** 70n + BigInt(n));      // fixture token ids have 71 decimal digits
 
 function pmMarket({ slug, asset, intervalSec, cond, start, end, outcome, lookback = 60, fee = 'on', tokens = 'pair' }) {
   const ups = tok(cond * 2);
@@ -91,10 +84,8 @@ function pmStreams(m, rnd, { stepMs = 7_000 } = {}) {
         payload: { asks: levels(c, 1).reverse(), bids: levels(c, -1), market: '0xm', asset_id: asset },
       });
     }
-    // A burst of deltas, thinned to one per window by the cadence rule (20 ms
-    // for BTC on these days), so the two decoders have to keep the same rows —
-    // including the ones landing EXACTLY on a window edge, where `<` and `<=`
-    // disagree.
+    // BTC deltas use a 20 ms cadence. Include window boundaries to check
+    // that both decoders use the same inclusive/exclusive rule.
     const burst = [0, 5, 10, 15, 20, 25, 40, 59, 60];
     for (let j = 0; j < burst.length; j += 1) {
       const t = ts + 300 + burst[j];
@@ -120,7 +111,7 @@ function pmStreams(m, rnd, { stepMs = 7_000 } = {}) {
       payload: { side: rnd() < 0.5 ? 'BUY' : 'SELL', size: String(Number((1 + rnd() * 30).toFixed(4))), price: String(mid) },
     });
   }
-  // Five kinds of event on ONE millisecond: the tie order is part of the contract.
+  // Five event kinds share a millisecond; their tie order is part of the contract.
   const same = m.start + 100_000;
   book.push({ slug: m.slug, asset_id: m.up, event_type: 'book', event_ts_ms: same, recv_ms: same, payload: { asks: [{ price: '0.62', size: '40' }], bids: [{ price: '0.58', size: '40' }] } });
   pc.push({ slug: m.slug, asset_id: null, event_type: 'price_change', event_ts_ms: same, recv_ms: same, payload: { price_changes: [{ side: 'SELL', price: '0.63', size: '25', asset_id: m.up }] } });
@@ -151,8 +142,7 @@ export async function buildPolymarketFixture(root) {
       pmMarket({ slug: 'btc-updown-5m-c', asset: 'btc', intervalSec: 300, cond: 3, start: D1(0, 10), end: D1(0, 15), outcome: 'UP', fee: 'odd' }),
       pmMarket({ slug: 'btc-updown-5m-d', asset: 'btc', intervalSec: 300, cond: 4, start: D1(0, 15), end: D1(0, 20), outcome: null }),
       pmMarket({ slug: 'btc-updown-5m-e', asset: 'btc', intervalSec: 300, cond: 5, start: D1(0, 20), end: D1(0, 25), outcome: 'DOWN', lookback: 30, fee: 'missing' }),
-      // Same token id twice: book rows exist and ticks flow, but no row can be
-      // attributed to a side — unusable, not billed against an empty book.
+      // Duplicate token ids make side attribution impossible; reject the market.
       pmMarket({ slug: 'btc-updown-5m-f', asset: 'btc', intervalSec: 300, cond: 6, start: D1(0, 25), end: D1(0, 30), outcome: 'UP', tokens: 'dup' }),
     ],
     'BTC-15m': [
@@ -196,9 +186,8 @@ export async function buildPolymarketFixture(root) {
   files[`data/polymarket/daily/best_bid_ask/BTC-15m/BTC-15m-best_bid_ask-${DAY2}.jsonl.gz`] = jsonl(merge('bbo'));
   files[`data/polymarket/daily/last_trade_price/BTC-15m/BTC-15m-last_trade_price-${DAY2}.jsonl.gz`] = jsonl(merge('trades'));
 
-  // Settlement streams. twap60s for both days; twap30s for DAY1 (market e);
-  // the instantaneous stream too, which no market settles on and so must not
-  // be fed at all. No ETH file anywhere.
+  // Include twap60s, DAY1 twap30s and an unused instantaneous stream.
+  // No ETH settlement file is present.
   const head = ['feed_ts_ms', 'value', 'full_accuracy_value', 'server_ts_ms', 'recv_ms'];
   files[`data/chainlink-twap-60s/daily/prices/BTCUSD/BTCUSD-twap60s-prices-${DAY1}.csv.gz`] = csv(head, settlementRows(T0, T1 - 1000, lcg(7)));
   files[`data/chainlink-twap-60s/daily/prices/BTCUSD/BTCUSD-twap60s-prices-${DAY2}.csv.gz`] = csv(head, settlementRows(T1, T1 + 3_600_000, lcg(8)));

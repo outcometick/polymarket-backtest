@@ -1,14 +1,7 @@
-// Generic data: the JavaScript decoder (runner/generic-data.mjs) and the
-// Python port (backtest/generic.py) must produce the same markets and the same
-// events from the same dataset, and every way in must produce the same run:
-//
-//   1. decode     decodeGenericDir vs decode_generic_dir: records, terminal
-//                 marks, refusals with reasons, row counts, every event;
-//   2. run        `ot run --json` (Python harness) vs run_template (in-process)
-//                 vs `ot run` of the same strategy written in JavaScript:
-//                 every trade, every fill, the report.
-//
-// On generic-fixture.mjs, which holds the awkward cases on purpose.
+// Compare generic-data decoding and replay across JS and Python.
+// Check records, terminal marks, refusals, row counts and events, then compare
+// trades, fills and reports from both CLI harnesses and run_template.
+// generic-fixture.mjs supplies the edge cases.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -310,7 +303,7 @@ test('generic decode: JavaScript and Python agree on every market, refusal, coun
     assert.equal(b.events.length, a.events.length, `${a.market.market_id} event count`);
     for (let j = 0; j < a.events.length; j += 1) assert.deepEqual(b.events[j], a.events[j], `${a.market.market_id} event ${j}`);
   }
-  // The fixture exercises what it claims to.
+  // Check that the fixture reaches the intended cases.
   const ids = js.markets.map((m) => m.market.market_id);
   assert.deepEqual(ids, ['0xm1', '0xm2', '0xm3', '0xm4', '0xm5']);
   assert.deepEqual(js.unusable.map((u) => u.market_id), ['0xr7', '0xr1', '0xr2', '0xr3', '0xr4', '0xr5', '0xr6']);
@@ -343,8 +336,7 @@ for (const [name, s] of Object.entries(STRATEGIES)) {
     const rep = stable(got.py.report);
     assert.deepEqual(stable(got.lib.report), rep);
     const jsRep = stable(got.js.report);
-    // Two strategies in two languages: different code, so a different
-    // fingerprint by design. lib vs ot run above is the same directory.
+    // JS and Python source differ, so their fingerprints differ.
     assert.ok(rep.fingerprint?.sha256, 'a generic run carries a fingerprint');
     for (const k of ['language', 'fingerprint']) { delete jsRep[k]; delete rep[k]; }
     assert.deepEqual(jsRep, rep);

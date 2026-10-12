@@ -1,9 +1,7 @@
-"""One strategy instance across every market, in time order (session mode).
+"""Cap open positions across overlapping markets in session mode.
 
-Markets overlap — a 15-minute market is open across three 5-minute ones — and in
-session mode they are replayed interleaved on one clock, so state carried from
-one market to the next can never be ahead of time. This caps how much is open
-across all markets at once.
+One strategy instance and one clock serve all markets, with events interleaved
+in time order. A 15-minute market can overlap three 5-minute markets.
 """
 
 from outcometick import Order, Strategy

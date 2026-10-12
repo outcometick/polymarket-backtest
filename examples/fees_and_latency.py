@@ -1,7 +1,5 @@
-"""How much of a result survives fees and a realistic delay?
-
-The same strategy three ways: gross (no fees), with the venue's taker fee, and
-with the fee plus 250 ms between decision and fill.
+"""Compare one strategy with no fees, venue taker fees, and venue fees plus
+250 ms decision-to-fill latency.
 """
 
 from outcometick.backtest import load_sample, run

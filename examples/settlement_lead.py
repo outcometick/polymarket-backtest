@@ -1,9 +1,7 @@
-"""Trade the side the settlement feed already favours, late in the market.
+"""Buy the side favoured by the settlement feed near market close.
 
-A crypto Up/Down market settles on its own Chainlink stream against the price at
-the open (the strike). `tick.value - market.strike` is how far the side in front
-is ahead right now, in the number that decides the market. This buys that side
-in the last `enter_at_s` seconds when the book still sells it cheaply enough.
+Compare tick.value with market.strike (the opening price) during the last
+enter_at_s seconds, and buy when the lead and ask meet the entry thresholds.
 """
 
 from outcometick import Order, Strategy

@@ -1,17 +1,9 @@
-"""Griffe extension for the docs site.
+"""Griffe extension preserving aligned option tables and Python exports.
 
-1. Keep the docstrings' aligned option tables.
-
-The package's docstrings are written for help(): plain text, with options laid
-out in columns ("fok           True: ..."). Markdown would run those lines
-together into one paragraph, so from the first such line to the end of its
-paragraph the text becomes a fenced block, exactly as help() shows it. Prose
-stays prose.
-
-2. Name what Python names. `outcometick.backtest.fingerprint` is a function
-defined in the package that shares its name with a submodule; griffe lets the
-submodule win, Python the function. (`sweep`, imported from its submodule of
-the same name, is documented by its full path instead.)
+Fence each option-table paragraph so Markdown preserves the help() layout.
+Keep package-defined functions visible when a same-named submodule shadows
+them in Griffe, as with outcometick.backtest.fingerprint. Document sweep
+through its full submodule path.
 """
 
 from __future__ import annotations

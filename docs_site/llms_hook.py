@@ -1,11 +1,8 @@
-"""MkDocs hook for the docs site: the files AI agents read.
+"""Write Markdown and LLM documentation files after the MkDocs build.
 
-After the build it writes, at the site root:
-  - <page>.md for every page: the page's Markdown source (the API page as plain
-    text built from the docstrings, since its source is only ::: directives);
-  - llms.txt: an index (https://llmstxt.org) -- what this is, then each page
-    with a one-line description and its .md link;
-  - llms-full.txt: every page's Markdown, one after another.
+At the site root, emit <page>.md for each page (API pages use docstrings),
+llms.txt with descriptions and Markdown links, and llms-full.txt containing
+all pages in order.
 """
 
 from __future__ import annotations
@@ -71,7 +68,7 @@ def _api_text(root: str) -> str:
     for path in API_OBJECTS:
         try:
             obj = pkg[path[len("outcometick."):]] if path.startswith("outcometick.") else pkg[path]
-        except Exception:  # noqa: BLE001 -- a missing object is left out, not a failed build
+        except Exception:  # noqa: BLE001; a missing object is left out, not a failed build
             continue
         obj = obj.final_target if obj.is_alias else obj
         name = path.rsplit(".", 1)[-1]

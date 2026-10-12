@@ -1,10 +1,6 @@
-// A synthetic GENERIC dataset (runner/generic-data.mjs) built to hold the
-// awkward cases, for generic-equivalence.test.mjs: every frame form, every
-// resolution source, unresolved markets marked three ways, markets refused for
-// each strictness rule, a window that opens mid-stream, same-millisecond
-// sequences across markets, a gzipped file, junk lines.
-//
-// Deterministic: a fixed-seed generator, no clock.
+// Fixed-seed generic dataset for cross-language comparisons: frame forms,
+// resolution sources, unresolved marks, refusal rules, mid-stream windows,
+// event ties, gzip and malformed lines.
 
 import { mkdir, writeFile } from 'node:fs/promises';
 import { gzipSync } from 'node:zlib';

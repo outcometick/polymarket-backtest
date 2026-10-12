@@ -1,16 +1,11 @@
-"""Quote both sides of a Polymarket Up/Down market and see what the fills were worth.
+"""Quote UP at the best bid and DOWN at one minus the best ask.
 
-Two resting bids: UP at the best bid, and DOWN at one minus the best ask (buying
-DOWN at 1 - a is offering UP at a — the mirrored book makes them one market).
-Both are re-quoted when the touch moves (at most once a second: a cancel stays
-exposed for a short window after it lands, so chasing every flicker of the
-touch mostly buys that exposure), and inventory is closed with a resting
-reduce-only order one tick through the entry.
+A DOWN bid at 1-a shares the mirrored queue with an UP offer at a. Requote
+at most once per second to limit exposure during the post-cancel print window.
+Close inventory with a resting reduce-only order above entry.
 
-The report's maker block is the point: fill rate, where in the queue the fills
-came from, and the markouts — the mid 1s / 10s / 60s after each fill, against
-the fill price. Consistently negative markouts are adverse selection: the
-fills you got were the ones you should not have wanted.
+The maker report shows fill rate, queue position and mid-price markouts at
+1s, 10s and 60s after fills. Negative markouts indicate adverse selection.
 """
 
 from outcometick import Order, Strategy
@@ -36,9 +31,8 @@ class TwoSidedQuote(Strategy):
             return None
         if self.quoted == (bid, ask) or (self.last_quote is not None and ctx.now - self.last_quote < REQUOTE_MS):
             return None
-        # Re-quote: cancel everything working, then quote both sides again and
-        # re-place the exit — all priced off the same book, so none of the new
-        # orders cross each other (one mirrored queue: the engine would refuse).
+        # Requote both sides and the exit from one book to avoid self-crossing
+        # orders in the mirrored queue.
         self.last_quote = ctx.now
         self.quoted = (bid, ask)
         for o in ctx.orders():

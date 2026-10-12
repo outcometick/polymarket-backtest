@@ -1,10 +1,5 @@
-// The JavaScript value rules the Python port reproduces (client/backtest/_js.py),
-// checked against JavaScript itself rather than against a hand-written table.
-//
-// These are the cases real data almost never hits and the equivalence suite
-// therefore cannot prove: a tie exactly on .5 in toFixed, a hex string in a
-// numeric field, an empty CSV cell, a number past 1e21. Each one is a place
-// where Python's nearest built-in gives a different answer.
+// Compare client/backtest/_js.py with JavaScript for rounding, numeric
+// coercion, empty CSV cells and large numbers that differ from Python built-ins.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -80,8 +75,7 @@ test('the Python port reads, prints and rounds numbers exactly as JavaScript doe
 });
 
 test('the Python port decides whether a run may rest orders exactly as JavaScript does', async () => {
-  // The refusal text reaches the customer verbatim from whichever runner they
-  // used, so it is compared as well as the verdict.
+  // Compare refusal text as well as the verdict across runners.
   const { restingPolicyFor } = await import(pathToFileURL(path.join(JS_ROOT, 'api', 'lib', 'backtest-datasets.mjs')).href);
   const CASES = [
     [{ datasets: ['settlement', 'book', 'trades'] }, 'polymarket'],

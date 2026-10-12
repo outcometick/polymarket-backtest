@@ -1,23 +1,6 @@
-// The pure-Python backtest (outcometick.backtest) must give the answer the
-// queue and `ot run` give, from the same archive. Not "close": the same events,
-// the same trades, the same fills, the same report.
-//
-// Three comparisons, each on two synthetic archives built to hold the awkward
-// cases (fixture-archive.mjs) and — when OT_SAMPLE_DIR points at the unpacked
-// public samples — on the real ones:
-//
-//   1. decode     runner/events.mjs + cli/local-data.mjs  vs  backtest/decode.py
-//                 + backtest/local.py, market by market, event by event;
-//   2. run        `ot run --json` (the Python harness, fed by Node)  vs
-//                 outcometick.backtest.run_template (the same harness loop, fed
-//                 in-process): every report field but wall-clock timing, and
-//                 every trade and fill row;
-//   3. languages  the same strategy written in JavaScript and in Python, both
-//                 through `ot run`, on decoded archive data rather than the
-//                 hand-built vectors runner/conformance uses.
-//
-// Two implementations that nobody compares drift. This repo has watched the
-// local runner and the queue drift nine times.
+// Compare JS and Python decoding, replay and reports on synthetic archives
+// and optional public samples (OT_SAMPLE_DIR). Compare all report fields except
+// wall-clock timing, plus every trade and fill row.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -34,10 +17,8 @@ import { buildPolymarketFixture, buildPredictFixture } from './fixture-archive.m
 
 const run = promisify(execFile);
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-// Two homes: client/backtest/ in the monorepo, verify/ in the public
-// polymarket-backtest repository — the PyPI tree at its root, and the npm
-// package (`npm install outcometick@<same version>`) as the JavaScript side to
-// compare against. Same test, same assertions.
+// Runs from client/backtest/ in the monorepo or verify/ in the public Python
+// repository, with the matching npm package installed.
 const MONOREPO = existsSync(path.join(HERE, '..', '..', 'runner', 'events.mjs'));
 const JS_ROOT = MONOREPO ? path.join(HERE, '..', '..') : path.join(HERE, '..', 'node_modules', 'outcometick');
 const ROOT = JS_ROOT;
@@ -49,10 +30,8 @@ const { makeBookThrottle } = await load('runner/events.mjs');
 const { readEventLines } = await load('runner/spool-day.mjs');
 
 /**
- * The SHA-256 of each public sample tarball these comparisons were last run
- * against. The release asset is "latest", so a new sample day would otherwise
- * change what this test proves without anyone noticing; a mismatch names the
- * new digest so it can be reviewed and pinned.
+ * Pin public sample tarball digests so replacing a release asset requires
+ * updating the fixtures used for these comparisons.
  */
 const SAMPLE_SHA256 = {
   'polymarket-data-samples.tar.gz': null,
@@ -63,7 +42,7 @@ const SAMPLE_SHA256 = {
 async function pythonPackage(dir) {
   await mkdir(dir, { recursive: true });
   if (!MONOREPO) {
-    // The public repository's root IS that layout already.
+    // The public repository root already has the installed-package layout.
     await cp(path.join(HERE, '..', 'outcometick'), path.join(dir, 'outcometick'), { recursive: true });
     return dir;
   }
@@ -143,7 +122,7 @@ async function pyDecode(pkgDir, root, { datasets, intervals, assets }) {
   return JSON.parse(await readFile(file, 'utf8'), noNegZero);
 }
 
-/** Every trade/fill row of an `ot run` archive, plus its report — read by Python's zipfile. */
+/** Read report, trade and fill rows with Python's zipfile. */
 const PY_RUN = `
 import csv, io, json, sys, zipfile
 from outcometick.backtest import run_template
@@ -203,8 +182,7 @@ async function writeStrategy(dir, manifest, files) {
 }
 
 // --- strategies ------------------------------------------------------------
-// Each exists twice, in Python and in JavaScript, written independently: a
-// generator would test the generator.
+// Strategies are written independently in both languages.
 
 const STRATEGIES = {
   near_close: {
@@ -370,8 +348,7 @@ export class S extends Strategy {
 `,
 };
 
-// Resting orders: Polymarket only (the Predict archive has no trade stream, so
-// a gtc order is refused there by design — restingPolicyFor).
+// Resting orders require a trade stream. restingPolicyFor refuses gtc on Predict archives.
 STRATEGIES.maker_quotes = {
   venues: ['polymarket'],
   manifest: {
@@ -431,8 +408,7 @@ export class S extends Strategy {
 `,
 };
 
-// The same quotes under a probabilistic queue model (phase 2c): the whole local
-// stack -- manifest, policy, both engines, the report's model name -- end to end.
+// Exercise probabilistic queues through manifest parsing, both engines and reporting.
 STRATEGIES.maker_quotes_prob = {
   ...STRATEGIES.maker_quotes,
   manifest: { ...STRATEGIES.maker_quotes.manifest, queue_model: { prob: 'power', n: 2 } },
@@ -508,13 +484,10 @@ test('the Python decoder produces the same events as the JS decoder', { timeout:
         const opts = { ...shape, assets: a.assets };
         const [js, pyOut] = await Promise.all([jsDecode(a.root, opts), pyDecode(pkg, a.root, opts)]);
         const events = js.reduce((n, d) => n + d.markets.reduce((k, m) => k + m.events.length, 0), 0);
-        // Vacuity guard: an archive that decodes to nothing would agree trivially.
+        // Require non-empty decoding before comparing results.
         assert.ok(events > 0, `${a.name}: nothing decoded`);
         assert.deepStrictEqual(pyOut, js, `${a.name} ${JSON.stringify(shape)}: decoders disagree`);
-        // The synthetic Polymarket archive carries a market with an unusable
-        // token pair (fixture-archive.mjs, 'btc-updown-5m-f'): agreement only
-        // proves something if both decoders actually reached that verdict.
-        // The spot shape has to decode some spot events, or it proves nothing.
+        // Both decoders must reject the duplicate token pair and decode spot events.
         if (a.name === 'polymarket fixture' && shape.datasets.includes('spot')) {
           const spots = js.reduce((n, d) => n + d.markets.reduce((k, m) => k + m.events.filter((e) => e.kind === 'spot').length, 0), 0);
           assert.ok(spots > 0, 'no spot event decoded');
@@ -539,8 +512,7 @@ test('outcometick.backtest reproduces `ot run`: every report field, trade and fi
       for (const name of strategiesFor(a.name)) {
         const dir = await strategyDir(work, name, 'python', a.name.replace(/\W+/g, '_'));
         const { report, zip } = await otRun(dir, a.root);
-        // Beside the strategy directory, not in it: every file in it is part
-        // of the run's fingerprint, and the Python run reads the directory next.
+        // Keep output outside the strategy directory, whose files are fingerprinted.
         await writeFile(`${dir}.report.json`, JSON.stringify(report));
         const outPath = `${dir}.py.json`;
         await py(pkg, PY_RUN, [dir, a.root, `${dir}.report.json`, zip, outPath]);
@@ -572,7 +544,7 @@ test('outcometick.backtest reproduces `ot run`: every report field, trade and fi
         assert.ok(got.js.markets.length >= entered && got.js.markets.length <= report.scanned.markets, `${label}: markets.csv rows`);
         assert.ok(!/LOOKAHEAD/.test(JSON.stringify(got.report)), `${label}: look-ahead`);
         if (name === 'maker_quotes') {
-          // Agreement on an empty block would prove nothing.
+          // Require non-empty output before comparing results.
           assert.ok(theirs.maker?.maker_fills > 0, `${label}: no maker fill — ${JSON.stringify(theirs.maker)}`);
         }
       }
@@ -598,8 +570,7 @@ test('the same strategy in JavaScript and in Python trades identically on archiv
           assert.deepStrictEqual(p.report[k], j.report[k], `${label}: ${k} differs between languages`);
         }
         assert.ok(p.report.rows.trades > 0, `${label}: the strategy never traded, so this proves nothing`);
-        // Every row, byte for byte: both archives are written by the same CSV
-        // writer from what each harness sent, so any difference is the engine.
+        // Both archives use the same CSV writer; row differences identify engine drift.
         const [pRows, jRows] = await Promise.all([zipRows(p.zip), zipRows(j.zip)]);
         assert.equal(pRows['trades.csv'], jRows['trades.csv'], `${label}: trades differ between languages`);
         assert.equal(pRows['fills.csv'], jRows['fills.csv'], `${label}: fills differ between languages`);
