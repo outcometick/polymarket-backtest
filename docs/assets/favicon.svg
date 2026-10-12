@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 32 32">
+  <!-- The 32px icon from the design: accent tile, mark knocked out in near-black.
+       Three bars, not four — at favicon size the fourth closes up into a block. -->
+  <rect width="32" height="32" rx="4" fill="#5ee6a0"/>
+  <rect x="9"  y="15" width="3" height="9"  fill="#08130d"/>
+  <rect x="14" y="8"  width="3" height="16" fill="#08130d"/>
+  <rect x="19" y="12" width="3" height="12" fill="#08130d"/>
+</svg>

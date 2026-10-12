@@ -17,6 +17,9 @@ copyright: Built by <a href="https://outcometick.com">outcometick.com</a>
 theme:
   name: material
   custom_dir: docs_site/overrides
+  # outcometick.com's mark, copied from public/logo.svg and app/icon.svg by scripts/publish-backtest-repo.mjs.
+  logo: assets/logo.svg
+  favicon: assets/favicon.svg
   features:
     - content.code.copy
     - navigation.top
