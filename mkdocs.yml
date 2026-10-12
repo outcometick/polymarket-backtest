@@ -49,19 +49,6 @@ nav:
   - How we verify it: verification.md
   - API reference: api.md
 
-# The Chinese README is reached from the language switcher in the header, next to the theme toggle.
-not_in_nav: |
-  zh.md
-
-extra:
-  alternate:
-    - name: English
-      link: ./
-      lang: en
-    - name: 简体中文
-      link: zh/
-      lang: zh
-
 validation:
   omitted_files: warn
   absolute_links: warn
@@ -87,6 +74,28 @@ hooks:
 
 plugins:
   - search
+  # Chinese pages are <page>.zh.md next to the English ones, served under /zh/; the language switcher in the
+  # header goes to the same page in the other language. Untranslated pages are English only (no fallback copy
+  # under /zh/), and the Chinese nav links to them.
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: false
+      reconfigure_material: true
+      reconfigure_search: true
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: zh
+          name: 简体中文
+          build: true
+          nav:
+            - 首页: index.md
+            - 方法论: methodology.md
+            - 我们如何验证: verification.md
+            - For AI agents (English): https://outcometick.github.io/polymarket-backtest/agents/
+            - API reference (English): https://outcometick.github.io/polymarket-backtest/api/
   - mkdocstrings:
       handlers:
         python:

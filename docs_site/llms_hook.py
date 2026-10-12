@@ -31,7 +31,7 @@ PAGES = [
      "Engine-against-engine and decoder-against-decoder tests, hand-worked answers, and what is not proven."),
     ("api.md", "api.md", "API reference",
      "run, run_template, sweep, fingerprint, load_sample, Result, SweepResult, Dataset, BacktestError, Strategy, Order."),
-    ("zh.md", "zh.md", "简体中文 (README in Chinese)", "The overview in Chinese."),
+    ("index.zh.md", "zh.md", "简体中文 (README in Chinese)", "The overview in Chinese."),
 ]
 
 API_OBJECTS = [

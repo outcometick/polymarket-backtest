@@ -1,13 +1,13 @@
 {% extends "base.html" %}
-{#- extra.alternate puts the language switcher in the header; Material also writes it as hreflang links on every
-    page, but only the home page and zh.md are translations of each other, so other pages drop them. -#}
+{#- The i18n plugin sets extra.alternate per page for the language switcher, and Material also writes it into the
+    head as hreflang links. Those are dropped: the plugin already writes every page's hreflang pairs, absolute,
+    into sitemap.xml, and Material's script fetches "sitemap.xml" relative to each head alternate, which for a
+    per-page alternate is a 404 on every page view. -#}
 {% block site_meta %}
   {%- set ns = namespace(meta=super()) -%}
-  {%- if page and page.file.src_uri not in ("index.md", "zh.md") -%}
-    {%- for alt in config.extra.alternate -%}
-      {%- set ns.meta = ns.meta | replace('<link rel="alternate" href="' ~ (alt.link | url) ~ '" hreflang="' ~ alt.lang ~ '">', '') -%}
-    {%- endfor -%}
-  {%- endif -%}
+  {%- for alt in config.extra.alternate or [] -%}
+    {%- set ns.meta = ns.meta | replace('<link rel="alternate" href="' ~ (alt.link | url) ~ '" hreflang="' ~ alt.lang ~ '">', '') -%}
+  {%- endfor -%}
   {{ ns.meta }}
 {% endblock %}
 {% block extrahead %}

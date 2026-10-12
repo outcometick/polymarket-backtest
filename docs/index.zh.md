@@ -9,7 +9,7 @@ title: "outcometick 回测 · Python"
 每个市场只在有结果凭据时以 1 美元 / 0 美元结算，每笔成交都扣平台的吃单手续费。在自己电脑上、在 notebook 里就能跑，不依赖其它包。
 做市策略可以挂限价单：排队模型按 Polymarket 实际的撮合记录方式建立，报告给出成交后的价格走势，看这些成交值不值。
 
-[English](index.md) · **简体中文** · [文档站](https://outcometick.github.io/polymarket-backtest/)（英文） · [给 AI agent 的说明](https://outcometick.github.io/polymarket-backtest/agents/)（英文） · [方法说明](methodology.md)（英文） · [我们怎么验证](verification.md)（英文） ·
+[English](https://outcometick.github.io/polymarket-backtest/) · **简体中文** · [文档站](https://outcometick.github.io/polymarket-backtest/zh/) · [给 AI agent 的说明](https://outcometick.github.io/polymarket-backtest/agents/)（英文） · [方法说明](methodology.zh.md) · [我们怎么验证](verification.zh.md) ·
 JavaScript / TypeScript 版：[polymarket-backtest-js](https://github.com/outcometick/polymarket-backtest-js)
 
 > 开源（MIT），由 [outcometick.com](https://outcometick.com/zh) 维护。它另外提供现成的 Polymarket 与 Predict.fun 加密涨跌市场逐笔归档，
@@ -100,13 +100,13 @@ result = run(Favourite, Dataset.from_frames(gamma_markets, frames))   # 或者�
 session 模式下，时间上重叠的市场按同一条时间线交错重放，跨市场保留的状态不会跑到时钟前面去。
 
 **和托管回测用同一个引擎。** 这里的重放引擎和我们沙箱跑 Python 策略的引擎是同一份文件；归档解码和报告从命令行与托管队列使用的
-JavaScript 版本移植而来，在公开样本和专门构造的边界归档上逐事件、逐笔对照过。详见[我们怎么验证](verification.md)。
+JavaScript 版本移植而来，在公开样本和专门构造的边界归档上逐事件、逐笔对照过。详见[我们怎么验证](verification.zh.md)。
 
 **为二元市场设计的报告。** Brier 分数、按入场价分桶的校准、每份合约的边际、峰值占用资金、滑点面板，以及同样下单规模的朴素基准：
 一直买 UP、一直买 DOWN、开盘时一直买热门。如果策略连「买热门」都跑不赢，报告第一页就会告诉你。
 
 **对数据坦白。** 盘口由按固定节奏采集的快照和增量重建；不抽稀的最优买卖价流只能删掉已被越过的档位，不能凭空添加。
-每个没能重放的市场日都会列出原因。细节见[方法说明](methodology.md)。
+每个没能重放的市场日都会列出原因。细节见[方法说明](methodology.zh.md)。
 
 **普通的类。** 没有特殊写法、不需要编译：`on_market_open`、`on_tick`、`on_book`、`on_trade`、`on_settle`，返回 `Order` 或什么都不返回。
 同一个类在这里和托管沙箱里都能跑。
@@ -196,15 +196,15 @@ result = run(MyStrategy, Dataset.from_pmdata(l2, trades, market=gamma_market))
 最少 5 股、数量以 0.01 股为单位）或 `"venue"`（你自己的数据）、`maker_rebate=0.2`（挂单返佣估算）、
 `quote_guard={"max_age_ms": 1500, "ask_sum": [0.92, 1.08]}`、`mirror_depth="shared"`（单盘口市场），以及只在本地的
 `book_throttle=False`（不抽稀地回放归档盘口，报告写明实际用的抽稀档位）。细节见
-[Methodology §10](methodology.md#10-execution-options)。
+[方法说明 §10](methodology.zh.md#10-执行选项)。
 
 定义 `on_timer` 并用 `ctx.schedule(at_ms, tag)`，或设 `feed_latency=50`，同一次运行的所有市场走同一条时间线：定时器在指定时刻唤醒策略，
-行情延迟让策略晚这么久才收到事件，而订单仍按平台盘口撮合（[§11](methodology.md#11-timers-and-feed-latency-one-time-line)）。
+行情延迟让策略晚这么久才收到事件，而订单仍按平台盘口撮合（[§11](methodology.zh.md#11-定时器与行情延迟同一条时间线)）。
 挂单可以用 `queue_model={"prob": "power", "n": 2}`（或 `power2`、`power3`、`log`、`log2`）估计无成交解释的档位减量中有多少发生在你前面，
-这是估计，请与默认的保守排队对比（[§12](methodology.md#12-probabilistic-queue-models-optional)）。
-`record_ms=60000` 按时间网格记录账户价值（未平仓按最优买价估值）与回撤，见 `Result.record`（[§13](methodology.md#13-the-recorder-mark-to-market-on-a-time-grid)）。
+这是估计，请与默认的保守排队对比（[§12](methodology.zh.md#12-概率排队模型可选)）。
+`record_ms=60000` 按时间网格记录账户价值（未平仓按最优买价估值）与回撤，见 `Result.record`（[§13](methodology.zh.md#13-记录器按时间网格盯市估值)）。
 `datasets` 里加上 `"spot"` 后可用 `ctx.spot()` 和 `ctx.twap_locked()`：结算 TWAP 已经过去多少、处在什么水平——这是用 Chainlink 逐秒流算的近似值，误差实测见
-[§14](methodology.md#14-spot-and-the-locked-part-of-the-settlement-twap-optional)。
+[§14](methodology.zh.md#14-即时价格与结算-twap-已锁定的部分可选)。
 
 ## 限制
 
