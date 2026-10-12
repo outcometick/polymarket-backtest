@@ -9,7 +9,7 @@ the venue's taker fee — on your laptop, from a notebook, with no other depende
 limit orders with a queue model built on how Polymarket actually records trading, and the markouts to see
 whether the fills were worth having.
 
-**English** · [简体中文](zh.md) · [Docs site](https://outcometick.github.io/polymarket-backtest/) · [For AI agents](https://outcometick.github.io/polymarket-backtest/agents.html) · [Methodology](methodology.md) ·
+**English** · [简体中文](zh.md) · [Docs site](https://outcometick.github.io/polymarket-backtest/) · [For AI agents](https://outcometick.github.io/polymarket-backtest/agents/) · [Methodology](methodology.md) ·
 [How we verify it](verification.md) · JavaScript / TypeScript:
 [polymarket-backtest-js](https://github.com/outcometick/polymarket-backtest-js)
 

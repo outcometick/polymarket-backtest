@@ -6,7 +6,7 @@
 每个市场只在有结果凭据时以 1 美元 / 0 美元结算，每笔成交都扣平台的吃单手续费。在自己电脑上、在 notebook 里就能跑，不依赖其它包。
 做市策略可以挂限价单：排队模型按 Polymarket 实际的撮合记录方式建立，报告给出成交后的价格走势，看这些成交值不值。
 
-[English](index.md) · **简体中文** · [文档站](https://outcometick.github.io/polymarket-backtest/)（英文） · [给 AI agent 的说明](https://outcometick.github.io/polymarket-backtest/agents.html)（英文） · [方法说明](methodology.md)（英文） · [我们怎么验证](verification.md)（英文） ·
+[English](index.md) · **简体中文** · [文档站](https://outcometick.github.io/polymarket-backtest/)（英文） · [给 AI agent 的说明](https://outcometick.github.io/polymarket-backtest/agents/)（英文） · [方法说明](methodology.md)（英文） · [我们怎么验证](verification.md)（英文） ·
 JavaScript / TypeScript 版：[polymarket-backtest-js](https://github.com/outcometick/polymarket-backtest-js)
 
 > 开源（MIT），由 [outcometick.com](https://outcometick.com/zh) 维护。它另外提供现成的 Polymarket 与 Predict.fun 加密涨跌市场逐笔归档，
