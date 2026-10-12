@@ -152,6 +152,10 @@ sweep(StrategyClass, data, {"enter_at_s": [30, 60, 120]},  # every combination, 
       cell_workers=None)                                  # N: N cells at a time, the same result
 ```
 
+Add `"spot"` to `datasets` for `ctx.spot()` and `ctx.twap_locked()`: how much of the settlement TWAP has already
+elapsed and at what level — an approximation from Chainlink's 1 Hz stream, with its measured error
+([§14](docs/methodology.md#14-spot-and-the-locked-part-of-the-settlement-twap-optional)).
+
 `Result` has `.report` (the same JSON the hosted backtester returns), `.trades`, `.fills`, `.markets` (every
 market replayed, entered or not), `.logs`, `.summary()`, `.plot()`, `.trades_df()`, `.fills_df()`, `.markets_df()`.
 `report["fingerprint"]` is the same sha256 `fingerprint()` printed before the run (Methodology §7). These calls run

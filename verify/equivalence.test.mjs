@@ -325,6 +325,51 @@ export class S extends Strategy {
   },
 };
 
+// The spot dataset and ctx.twap_locked(): Polymarket only (Predict has no
+// TWAP-settled market and refuses the dataset).
+STRATEGIES.spot_lock = {
+  venues: ['polymarket'],
+  manifest: { hooks: ['on_market_open', 'on_tick'], datasets: ['settlement', 'book', 'spot'], intervals: ['5m', '15m'] },
+  expectReport: (report) => assert.ok(report.spot?.markets > 0, `no market had spot: ${JSON.stringify(report.spot)}`),
+  py: `from outcometick import Strategy, Order
+
+
+class S(Strategy):
+    def on_market_open(self, ctx, market):
+        self.close, self.strike, self.done = market.close_ts_ms, market.strike, False
+
+    def on_tick(self, ctx, tick):
+        if self.close is None or self.close - ctx.now > 60_000:
+            return None
+        f = lambda x: "null" if x is None else f"{x:.6f}"
+        l = ctx.twap_locked()
+        s = ctx.spot()
+        ctx.log("lock " + (f(s.value) if s else "null") + " "
+                + (" ".join([f(l.value), str(l.samples), str(l.elapsed_ms), f(l.coverage), f(l.projected)]) if l else "null"))
+        if self.done or l is None or l.projected is None or self.strike is None:
+            return None
+        self.done = True
+        return Order(side="UP" if l.projected >= self.strike else "DOWN", notional=20, limit=0.95)
+`,
+  js: `import { Strategy, Order } from "outcometick";
+
+export class S extends Strategy {
+  onMarketOpen(ctx, market) { this.close = market.close_ts_ms; this.strike = market.strike; this.done = false; }
+  onTick(ctx, tick) {
+    if (this.close == null || this.close - ctx.now > 60000) return null;
+    const f = (x) => (x == null ? "null" : x.toFixed(6));
+    const l = ctx.twap_locked();
+    const s = ctx.spot();
+    ctx.log("lock " + (s ? f(s.value) : "null") + " "
+      + (l ? [f(l.value), l.samples, l.elapsed_ms, f(l.coverage), f(l.projected)].join(" ") : "null"));
+    if (this.done || l == null || l.projected == null || this.strike == null) return null;
+    this.done = true;
+    return new Order({ side: l.projected >= this.strike ? "UP" : "DOWN", notional: 20, limit: 0.95 });
+  }
+}
+`,
+};
+
 // Resting orders: Polymarket only (the Predict archive has no trade stream, so
 // a gtc order is refused there by design — restingPolicyFor).
 STRATEGIES.maker_quotes = {
@@ -458,6 +503,7 @@ test('the Python decoder produces the same events as the JS decoder', { timeout:
       for (const shape of [
         { datasets: ['settlement', 'book', 'trades', 'bbo'], intervals: ['5m', '15m'] },
         { datasets: ['settlement'], intervals: ['5m'] },
+        { datasets: ['settlement', 'book', 'spot'], intervals: ['5m', '15m'] },
       ]) {
         const opts = { ...shape, assets: a.assets };
         const [js, pyOut] = await Promise.all([jsDecode(a.root, opts), pyDecode(pkg, a.root, opts)]);
@@ -468,6 +514,11 @@ test('the Python decoder produces the same events as the JS decoder', { timeout:
         // The synthetic Polymarket archive carries a market with an unusable
         // token pair (fixture-archive.mjs, 'btc-updown-5m-f'): agreement only
         // proves something if both decoders actually reached that verdict.
+        // The spot shape has to decode some spot events, or it proves nothing.
+        if (a.name === 'polymarket fixture' && shape.datasets.includes('spot')) {
+          const spots = js.reduce((n, d) => n + d.markets.reduce((k, m) => k + m.events.filter((e) => e.kind === 'spot').length, 0), 0);
+          assert.ok(spots > 0, 'no spot event decoded');
+        }
         if (a.name === 'polymarket fixture' && shape.datasets.includes('book')) {
           const why = js.flatMap((d) => d.unusable.map((u) => u.why));
           assert.ok(why.includes('market has no usable [Up, Down] token ids'), `token-pair case not exercised: ${JSON.stringify(why)}`);
